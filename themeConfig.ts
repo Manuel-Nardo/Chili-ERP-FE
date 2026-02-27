@@ -12,11 +12,11 @@ import { AppContentLayoutNav, ContentWidth, FooterType, NavbarType } from '@layo
 
 export const { themeConfig, layoutConfig } = defineThemeConfig({
   app: {
-    title: 'Uniformes CG',
+    title: 'ERP CG',
     logo: h('img', {
       src: logo,
-      alt: 'Uniformes CG',
-      style: 'height: 120px; width: auto; display: block;',
+      alt: 'ERP CG',
+      style: 'height: 40px; width: auto; display: block;',
     }),
     contentWidth: ContentWidth.Fluid,
     contentLayoutNav: AppContentLayoutNav.Vertical,

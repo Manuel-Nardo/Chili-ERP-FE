@@ -1,5 +1,4 @@
 import type { IconAliases, IconProps } from 'vuetify'
-import { mdi, aliases as mdiAliases } from 'vuetify/iconsets/mdi'
 
 import checkboxChecked from '@images/svg/checkbox-checked.svg'
 import checkboxIndeterminate from '@images/svg/checkbox-indeterminate.svg'
@@ -50,11 +49,6 @@ const aliases: Partial<IconAliases> = {
   sortDesc: 'tabler-arrow-down',
 }
 
-const combinedAliases = {
-  ...mdiAliases,
-  ...aliases,
-}
-
 export const iconify = {
   component: (props: IconProps) => {
     // Load custom SVG directly instead of going through icon component
@@ -82,10 +76,9 @@ export const iconify = {
 }
 
 export const icons = {
-  defaultSet: 'mdi',
-  aliases: combinedAliases,
+  defaultSet: 'iconify',
+  aliases,
   sets: {
-    mdi,
     iconify,
   },
 }
