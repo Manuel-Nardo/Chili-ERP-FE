@@ -11,7 +11,16 @@ import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
 import { themeConfig } from '@themeConfig'
 import { VForm } from 'vuetify/components/VForm'
 
-const authThemeImg = useGenerateImageVariant(authV2LoginIllustrationLight, authV2LoginIllustrationDark, authV2LoginIllustrationBorderedLight, authV2LoginIllustrationBorderedDark, true)
+import { useAuthStore } from '@/stores/auth_store'
+import { useAbility } from '@casl/vue'
+
+const authThemeImg = useGenerateImageVariant(
+  authV2LoginIllustrationLight,
+  authV2LoginIllustrationDark,
+  authV2LoginIllustrationBorderedLight,
+  authV2LoginIllustrationBorderedDark,
+  true,
+)
 
 const authThemeMask = useGenerateImageVariant(authV2MaskLight, authV2MaskDark)
 
@@ -27,7 +36,10 @@ const isPasswordVisible = ref(false)
 const route = useRoute()
 const router = useRouter()
 
+// Mantén ability aquí igual que original (por si Vuexy lo requiere en esta página)
 const ability = useAbility()
+
+const authStore = useAuthStore()
 
 const errors = ref<Record<string, string | undefined>>({
   email: undefined,
@@ -45,36 +57,44 @@ const rememberMe = ref(false)
 
 const login = async () => {
   try {
-    const res = await $api('/auth/login', {
-      method: 'POST',
-      body: {
-        email: credentials.value.email,
-        password: credentials.value.password,
-      },
-      onResponseError({ response }) {
-        // 401 o 422
-        if (response._data?.errors) errors.value = response._data.errors
-      },
+    // ✅ Usa el store pero retorna el mismo contrato que el original
+    const res = await authStore.login({
+      email: credentials.value.email,
+      password: credentials.value.password,
+      remember: rememberMe.value,
     })
 
-    useCookie('accessToken').value = res.token
-    useCookie('userData').value = res.user
-    useCookie('userAbilityRules').value = res.permissions ?? []
+    const { accessToken, userData, userAbilityRules } = res
 
-    ability.update([]) // por ahora (si no estás mapeando a CASL)
-    router.replace(route.query.to ? String(route.query.to) : '/')
+    // ✅ EXACTO como el original (redundante, pero te evita sorpresas)
+    useCookie('userAbilityRules').value = userAbilityRules
+    ability.update(userAbilityRules)
+
+    useCookie('userData').value = userData
+    useCookie('accessToken').value = accessToken
+
+    await nextTick(() => {
+      router.replace(route.query.to ? String(route.query.to) : '/')
+    })
   }
-  catch (err) {
-    console.error(err)
+  catch (err: any) {
+    // Si el store trae validaciones Laravel, las exponemos como errors.email/password
+    // Contrato esperado: { errors: { email: [], password: [] } }
+    errors.value.email = authStore.loginErrors.email?.[0]
+    errors.value.password = authStore.loginErrors.password?.[0]
+
+    // fallback si no vino estructurado
+    if (!errors.value.email && !errors.value.password) {
+      // opcional: podrías mostrar un alert, por ahora solo consola como original
+      // console.error(err)
+    }
   }
 }
 
 const onSubmit = () => {
-  refVForm.value?.validate()
-    .then(({ valid: isValid }) => {
-      if (isValid)
-        login()
-    })
+  refVForm.value?.validate().then(({ valid: isValid }) => {
+    if (isValid) login()
+  })
 }
 </script>
 
@@ -88,24 +108,11 @@ const onSubmit = () => {
     </div>
   </RouterLink>
 
-  <VRow
-    no-gutters
-    class="auth-wrapper bg-surface"
-  >
-    <VCol
-      md="8"
-      class="d-none d-md-flex"
-    >
+  <VRow no-gutters class="auth-wrapper bg-surface">
+    <VCol md="8" class="d-none d-md-flex">
       <div class="position-relative bg-background w-100 me-0">
-        <div
-          class="d-flex align-center justify-center w-100 h-100"
-          style="padding-inline: 6.25rem;"
-        >
-          <VImg
-            max-width="613"
-            :src="authThemeImg"
-            class="auth-illustration mt-16 mb-2"
-          />
+        <div class="d-flex align-center justify-center w-100 h-100" style="padding-inline: 6.25rem;">
+          <VImg max-width="613" :src="authThemeImg" class="auth-illustration mt-16 mb-2" />
         </div>
 
         <img
@@ -118,29 +125,19 @@ const onSubmit = () => {
       </div>
     </VCol>
 
-    <VCol
-      cols="12"
-      md="4"
-      class="auth-card-v2 d-flex align-center justify-center"
-    >
-      <VCard
-        flat
-        :max-width="500"
-        class="mt-12 mt-sm-0 pa-4"
-      >
+    <VCol cols="12" md="4" class="auth-card-v2 d-flex align-center justify-center">
+      <VCard flat :max-width="500" class="mt-12 mt-sm-0 pa-4">
         <VCardText>
           <h4 class="text-h4 mb-1">
-            Bienvenido! <span class="text-capitalize"> {{ themeConfig.app.title }} </span>! 👋🏻
+            Bienvenido a <span class="text-capitalize"> {{ themeConfig.app.title }} </span>! 👋🏻
           </h4>
           <p class="mb-0">
-            Porfavor ingresa tu email y contraseña para iniciar sesión en tu cuenta
+            Por favor ingresa tus credenciales para iniciar sesión
           </p>
         </VCardText>
+
         <VCardText>
-          <VForm
-            ref="refVForm"
-            @submit.prevent="onSubmit"
-          >
+          <VForm ref="refVForm" @submit.prevent="onSubmit">
             <VRow>
               <!-- email -->
               <VCol cols="12">
@@ -152,6 +149,7 @@ const onSubmit = () => {
                   autofocus
                   :rules="[requiredValidator, emailValidator]"
                   :error-messages="errors.email"
+                  :disabled="authStore.loading"
                 />
               </VCol>
 
@@ -166,21 +164,15 @@ const onSubmit = () => {
                   autocomplete="password"
                   :error-messages="errors.password"
                   :append-inner-icon="isPasswordVisible ? 'tabler-eye-off' : 'tabler-eye'"
+                  :disabled="authStore.loading"
                   @click:append-inner="isPasswordVisible = !isPasswordVisible"
                 />
 
                 <div class="d-flex align-center flex-wrap justify-space-between my-6">
-                  <VCheckbox
-                    v-model="rememberMe"
-                    label="Remember me"
-                  />
-
+                  
                 </div>
 
-                <VBtn
-                  block
-                  type="submit"
-                >
+                <VBtn block type="submit" :loading="authStore.loading" :disabled="authStore.loading">
                   Login
                 </VBtn>
               </VCol>
