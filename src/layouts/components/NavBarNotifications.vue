@@ -1,18 +1,21 @@
 <script lang="ts" setup>
 import type { Notification } from '@layouts/types'
 
+import avatar3 from '@images/avatars/avatar-3.png'
 import avatar4 from '@images/avatars/avatar-4.png'
+import avatar5 from '@images/avatars/avatar-5.png'
+import paypal from '@images/cards/paypal-rounded.png'
 
 const notifications = ref<Notification[]>([
   {
     id: 1,
     img: avatar4,
-    title: 'Welcome to SMYS! 🎉',
-    subtitle: 'Welcome',
+    title: 'Congratulation Flora! 🎉',
+    subtitle: 'Won the monthly best seller badge',
     time: 'Today',
     isSeen: true,
   },
-  /*{
+  {
     id: 2,
     text: 'Tom Holland',
     title: 'New user registered.',
@@ -44,7 +47,7 @@ const notifications = ref<Notification[]>([
     subtitle: 'New order received from john',
     time: '19 Mar',
     isSeen: true,
-  },*/
+  },
 ])
 
 const removeNotification = (notificationId: number) => {

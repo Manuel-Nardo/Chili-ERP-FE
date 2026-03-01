@@ -1,8 +1,11 @@
 import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
 import vue from '@vitejs/plugin-vue'
+import vueJsx from '@vitejs/plugin-vue-jsx'
 import { fileURLToPath } from 'node:url'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
+import { VueRouterAutoImports, getPascalCaseRouteName } from 'unplugin-vue-router'
+import VueRouter from 'unplugin-vue-router/vite'
 import { defineConfig } from 'vite'
 import Layouts from 'vite-plugin-vue-layouts'
 import vuetify from 'vite-plugin-vuetify'
@@ -11,6 +14,20 @@ import svgLoader from 'vite-svg-loader'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
+    // Docs: https://github.com/posva/unplugin-vue-router
+    // ℹ️ This plugin should be placed before vue plugin
+    VueRouter({
+      getRouteName: routeNode => {
+        // Convert pascal case to kebab case
+        return getPascalCaseRouteName(routeNode)
+          .replace(/([a-z\d])([A-Z])/g, '$1-$2')
+          .toLowerCase()
+      },
+      beforeWriteFiles: root => {
+        root.insert('/apps/email/:filter', '/src/pages/apps/email/index.vue')
+        root.insert('/apps/email/:label', '/src/pages/apps/email/index.vue')
+      },
+    }),
     vue({
       template: {
         compilerOptions: {
@@ -18,6 +35,8 @@ export default defineConfig({
         },
       },
     }),
+    vueJsx(),
+
     // Docs: https://github.com/vuetifyjs/vuetify-loader/tree/master/packages/vite-plugin
     vuetify({
       styles: {
@@ -45,7 +64,7 @@ export default defineConfig({
 
     // Docs: https://github.com/antfu/unplugin-auto-import#unplugin-auto-import
     AutoImport({
-      imports: ['vue',  '@vueuse/core', '@vueuse/math', 'vue-i18n', 'pinia'],
+      imports: ['vue', VueRouterAutoImports, '@vueuse/core', '@vueuse/math', 'vue-i18n', 'pinia'],
       dirs: [
         './src/@core/utils',
         './src/@core/composable/',

@@ -1,7 +1,6 @@
 import { AppContentLayoutNav, NavbarType } from '@layouts/enums'
 import { injectionKeyIsVerticalNavHovered } from '@layouts/symbols'
 import { _setDirAttr } from '@layouts/utils'
-import { useRoute } from 'vue-router'
 
 // ℹ️ We should not import themeConfig here but in urgency we are doing it for now
 import { layoutConfig } from '@themeConfig'
@@ -14,6 +13,7 @@ export const cookieRef = <T>(key: string, defaultValue: T) => {
 
 export const useLayoutConfigStore = defineStore('layoutConfig', () => {
   const route = useRoute()
+
   // 👉 Navbar Type
   const navbarType = ref(layoutConfig.navbar.type)
 

@@ -1,13 +1,12 @@
 <script lang="ts" setup>
+import type { Component } from 'vue'
+import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
+import { VNodeRenderer } from './VNodeRenderer'
 import { layoutConfig } from '@layouts'
 import { VerticalNavGroup, VerticalNavLink, VerticalNavSectionTitle } from '@layouts/components'
 import { useLayoutConfigStore } from '@layouts/stores/config'
 import { injectionKeyIsVerticalNavHovered } from '@layouts/symbols'
 import type { NavGroup, NavLink, NavSectionTitle, VerticalNavItems } from '@layouts/types'
-import type { Component } from 'vue'
-import { useRoute } from 'vue-router'
-import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
-import { VNodeRenderer } from './VNodeRenderer'
 
 interface Props {
   tag?: string | Component
@@ -82,12 +81,12 @@ const hideTitleAndIcon = configStore.isVerticalNavMini(isHovered)
           <VNodeRenderer :nodes="layoutConfig.app.logo" />
 
           <Transition name="vertical-nav-app-title">
-            <h5
+            <h1
               v-show="!hideTitleAndIcon"
               class="app-logo-title"
             >
               {{ layoutConfig.app.title }}
-            </h5>
+            </h1>
           </Transition>
         </RouterLink>
         <!-- 👉 Vertical nav actions -->

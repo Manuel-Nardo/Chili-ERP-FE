@@ -1,17 +1,9 @@
+import appsAndPages from './apps-and-pages'
+import charts from './charts'
+import dashboard from './dashboard'
+import forms from './forms'
+import others from './others'
+import uiElements from './ui-elements'
+import type { VerticalNavItems } from '@layouts/types'
 
-export default [
-  {
-    title: 'IA',
-    icon: { icon: 'tabler-user' },
-    children: [
-      {
-        title: 'Pre Gate In',
-        to: { name: 'pre-gate-in' },
-      },
-      {
-        title: 'Pre Gate Out',
-        to: { name: 'pre-gate-out' },
-      },
-    ],
-  },
-]
+export default [...dashboard, ...appsAndPages, ...uiElements, ...forms, ...charts, ...others] as VerticalNavItems
