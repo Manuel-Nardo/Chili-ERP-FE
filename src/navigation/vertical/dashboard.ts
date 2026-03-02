@@ -1,60 +1,41 @@
 export default [
   {
-    title: 'Dashboards',
-    icon: { icon: 'tabler-smart-home' },
+    title: 'Catálogos',
+    icon: { icon: 'tabler-database' },
     children: [
       {
-        title: 'Analytics',
-        to: 'dashboards-analytics',
+        title: 'Impuestos',
+        to: 'catalogs-taxes',
       },
       {
-        title: 'CRM',
+        title: 'Productos',
         to: 'dashboards-crm',
       },
       {
-        title: 'Ecommerce',
+        title: 'Sucursales',
         to: 'dashboards-ecommerce',
       },
-      {
-        title: 'Academy',
-        to: 'dashboards-academy',
-      },
-      {
-        title: 'Logistics',
-        to: 'dashboards-logistics',
-      },
     ],
-    badgeContent: '5',
-    badgeClass: 'bg-error',
   },
   {
-    title: 'Front Pages',
-    icon: { icon: 'tabler-files' },
+    title: 'Configuración',
+    icon: { icon: 'tabler-settings' },
     children: [
       {
-        title: 'Landing',
-        to: 'front-pages-landing-page',
-        target: '_blank',
+        title: 'User',
+        icon: { icon: 'tabler-user' },
+        children: [
+          { title: 'List', to: 'apps-user-list' },
+          { title: 'View', to: { name: 'apps-user-view-id', params: { id: 21 } } },
+        ],
       },
       {
-        title: 'Pricing',
-        to: 'front-pages-pricing',
-        target: '_blank',
-      },
-      {
-        title: 'Payment',
-        to: 'front-pages-payment',
-        target: '_blank',
-      },
-      {
-        title: 'Checkout',
-        to: 'front-pages-checkout',
-        target: '_blank',
-      },
-      {
-        title: 'Help Center',
-        to: 'front-pages-help-center',
-        target: '_blank',
+        title: 'Roles & Permissions',
+        icon: { icon: 'tabler-lock' },
+        children: [
+          { title: 'Roles', to: 'apps-roles' },
+          { title: 'Permissions', to: 'apps-permissions' },
+        ],
       },
     ],
   },
