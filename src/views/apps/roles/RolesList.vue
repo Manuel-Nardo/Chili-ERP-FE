@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { useSwal } from '@/composables/useSwal';
 import { useRolesStore } from '@/stores/roles.store';
 import { computed, onMounted, ref } from 'vue';
+
+const { confirmDelete, success, error } = useSwal()
 
 const rolesStore = useRolesStore()
 
@@ -24,10 +27,18 @@ onMounted(async () => {
   await rolesStore.fetchRoles()
 })
 
+
+
 const onDelete = async (id: number) => {
-  const ok = confirm('¿Eliminar este rol?')
+  const ok = await confirmDelete({ title: '¿Eliminar rol?', text: 'Esta acción no se puede deshacer.' })
   if (!ok) return
-  await rolesStore.deleteRole(id)
+
+  try {
+    await rolesStore.deleteRole(id)
+    await success('Eliminado', 'El rol fue eliminado correctamente.')
+  } catch (e: any) {
+    await error('Error', e?.response?.data?.message ?? 'No se pudo eliminar el rol.')
+  }
 }
 </script>
 
@@ -119,6 +130,14 @@ const onDelete = async (id: number) => {
       <!-- Acciones: iconos + tooltips -->
       <template #item.actions="{ item }">
         <div class="d-flex justify-end gap-1">
+          <VTooltip text="Asignar permisos" location="top">
+            <template #activator="{ props }">
+              <IconBtn v-bind="props" @click="rolesStore.openPermissions(item)">
+                <VIcon icon="tabler-key" />
+              </IconBtn>
+            </template>
+          </VTooltip>
+
           <VTooltip text="Editar rol" location="top">
             <template #activator="{ props }">
               <IconBtn v-bind="props" @click="rolesStore.openEdit(item)">
@@ -149,11 +168,13 @@ const onDelete = async (id: number) => {
     <!-- Dialog -->
     <RoleDialog />
     <RoleDrawer />
+    <RolePermissionsDrawer />
   </VCard>
 </template>
 
 <script lang="ts">
 import RoleDialog from '@/views/apps/roles/RoleDialog.vue';
 import RoleDrawer from '@/views/apps/roles/RoleDrawer.vue';
+import RolePermissionsDrawer from '@/views/apps/roles/RolePermissionsDrawer.vue';
 export default {}
 </script>

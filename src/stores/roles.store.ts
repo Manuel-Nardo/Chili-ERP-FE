@@ -1,4 +1,5 @@
 // /src/stores/roles.store.ts
+import { useSwal } from '@/composables/useSwal'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
@@ -11,70 +12,130 @@ export type Role = {
 }
 
 export const useRolesStore = defineStore('roles', () => {
+  const { success, error } = useSwal()
+
   const roles = ref<Role[]>([])
   const loading = ref(false)
 
-    // UI
-    const drawerOpen = ref(false)
-    const saving = ref(false)
+  // =========================
+  // UI: Drawer Permisos del Rol
+  // =========================
+  const permissionsDrawerOpen = ref(false)
+  const permissionsSaving = ref(false)
+  const permissionsRoleId = ref<number | null>(null)
+  const permissionsRoleName = ref<string>('')
+  const selectedPermissions = ref<string[]>([])
 
-    const editingId = ref<number | null>(null)
-    const formName = ref('')
-    const formPermissions = ref<string[]>([])
+  const openPermissions = async (role: { id: number; name?: string; permissions?: string[] }) => {
+    permissionsRoleId.value = role.id
+    permissionsRoleName.value = role.name ?? ''
+    // si ya traes permissions en roles, úsalo:
+    selectedPermissions.value = Array.isArray(role.permissions) ? [...role.permissions] : []
+    permissionsDrawerOpen.value = true
+  }
 
-    const isEdit = computed(() => editingId.value !== null)
+  const closePermissionsDrawer = () => {
+    permissionsDrawerOpen.value = false
+  }
 
-    const resetForm = () => {
-        editingId.value = null
-        formName.value = ''
-        formPermissions.value = []
+  const syncRolePermissions = async () => {
+    if (!permissionsRoleId.value) return
+
+    permissionsSaving.value = true
+    try {
+      await $api(`/rbac/roles/${permissionsRoleId.value}/permissions`, {
+        method: 'PUT',
+        body: { permissions: selectedPermissions.value },
+      })
+
+      // refresca lista para que se actualice el conteo/array
+      await fetchRoles()
+    } finally {
+      permissionsSaving.value = false
     }
-
-    const openCreate = () => {
-        resetForm()
-        drawerOpen.value = true
-    }
-
-const openEdit = (role: { id: number; name?: string; permissions?: string[] }) => {
-  editingId.value = role.id
-  formName.value = role.name ?? ''
-  formPermissions.value = role.permissions ?? []
-  drawerOpen.value = true
-}
-
-const closeDrawer = () => {
-  drawerOpen.value = false
-}
+  }
 
   const fetchRoles = async () => {
     loading.value = true
     try {
       const res: any = await $api('/rbac/roles')
-      roles.value = res.data ?? []
+      roles.value = res.data?.data ?? res.data ?? []
+    } catch (e) {
+      error('Error', 'No se pudieron cargar los roles.')
     } finally {
       loading.value = false
     }
   }
 
   const createRole = async (payload: { name: string; permissions: string[] }) => {
-    const res: any = await $api('/rbac/roles', { method: 'POST', body: payload })
-    await fetchRoles()
-    return res
+    try {
+      const res: any = await $api('/rbac/roles', {
+        method: 'POST',
+        body: payload,
+      })
+
+      success('Rol creado correctamente')
+      await fetchRoles()
+      return res
+
+    } catch (e: any) {
+      handleApiError(e)
+      throw e
+    }
   }
 
   const updateRole = async (id: number, payload: { name?: string; permissions?: string[] }) => {
-    const res: any = await $api(`/rbac/roles/${id}`, { method: 'PUT', body: payload })
-    await fetchRoles()
-    return res
+    try {
+      const res: any = await $api(`/rbac/roles/${id}`, {
+        method: 'PUT',
+        body: payload,
+      })
+
+      success('Rol actualizado correctamente')
+      await fetchRoles()
+      return res
+
+    } catch (e: any) {
+      handleApiError(e)
+      throw e
+    }
   }
 
   const deleteRole = async (id: number) => {
-    await $api(`/rbac/roles/${id}`, { method: 'DELETE' })
-    await fetchRoles()
+    try {
+      await $api(`/rbac/roles/${id}`, { method: 'DELETE' })
+      success('Rol eliminado correctamente')
+      await fetchRoles()
+    } catch (e: any) {
+      handleApiError(e)
+    }
   }
 
-  // UI
-  const dialogVisible = ref(false)
+const handleApiError = (e: any) => {
+  // Vuexy/$api suele usar ofetch: status + data, no axios response
+  const status =
+    e?.status ??
+    e?.response?.status ??
+    e?.data?.status
+
+  const data =
+    e?.data ??
+    e?.response?.data ??
+    e?.response?._data
+
+  const message =
+    data?.message ??
+    (status === 422 ? 'Error de validación.' : null) ??
+    (status === 409 ? 'Conflicto: recurso duplicado.' : null) ??
+    'Ocurrió un error inesperado.'
+
+  error('Error', message)
+}
+
+  // =========================
+  // UI State
+  // =========================
+  const drawerOpen = ref(false)
   const saving = ref(false)
 
   const editingId = ref<number | null>(null)
@@ -91,18 +152,18 @@ const closeDrawer = () => {
 
   const openCreate = () => {
     resetForm()
-    dialogVisible.value = true
+    drawerOpen.value = true
   }
 
   const openEdit = (role: { id: number; name?: string; permissions?: string[] }) => {
     editingId.value = role.id
     formName.value = role.name ?? ''
     formPermissions.value = role.permissions ?? []
-    dialogVisible.value = true
+    drawerOpen.value = true
   }
 
-  const closeDialog = () => {
-    dialogVisible.value = false
+  const closeDrawer = () => {
+    drawerOpen.value = false
   }
 
   const saveFromDialog = async () => {
@@ -115,10 +176,12 @@ const closeDrawer = () => {
         permissions: formPermissions.value ?? [],
       }
 
-      if (isEdit.value) await updateRole(editingId.value!, payload)
-      else await createRole(payload)
+      if (isEdit.value)
+        await updateRole(editingId.value!, payload)
+      else
+        await createRole(payload)
 
-      closeDialog()
+      closeDrawer()
       resetForm()
     } finally {
       saving.value = false
@@ -133,7 +196,7 @@ const closeDrawer = () => {
     updateRole,
     deleteRole,
 
-    dialogVisible,
+    drawerOpen,
     saving,
     editingId,
     formName,
@@ -141,8 +204,18 @@ const closeDrawer = () => {
     isEdit,
     openCreate,
     openEdit,
-    closeDialog,
+    closeDrawer,
     resetForm,
     saveFromDialog,
+
+    
+    permissionsDrawerOpen,
+    permissionsSaving,
+    permissionsRoleId,
+    permissionsRoleName,
+    selectedPermissions,
+    openPermissions,
+    closePermissionsDrawer,
+    syncRolePermissions,
   }
 })

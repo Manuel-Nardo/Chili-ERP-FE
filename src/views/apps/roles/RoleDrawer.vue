@@ -1,58 +1,24 @@
 <script setup lang="ts">
 import { useRolesStore } from '@/stores/roles.store'
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 
 const store = useRolesStore()
 const formRef = ref()
 
-// textarea helper
-const permissionsText = ref('')
-
 const title = computed(() => (store.isEdit ? 'Editar rol' : 'Nuevo rol'))
-
-const parsePermissions = (txt: string): string[] => {
-  const s = (txt ?? '').trim()
-  if (!s) return []
-
-  // JSON array: ["users.read","users.create"]
-  try {
-    const json = JSON.parse(s)
-    if (Array.isArray(json))
-      return json.map(x => String(x).trim()).filter(Boolean)
-  } catch {}
-
-  // CSV / newlines: users.read, users.create
-  return s.split(/[\n,]+/g).map(x => x.trim()).filter(Boolean)
-}
-
-watch(
-  () => store.drawerOpen,
-  v => {
-    if (!v) return
-    permissionsText.value = store.formPermissions?.length
-      ? JSON.stringify(store.formPermissions, null, 2)
-      : ''
-  },
-)
 
 const onSubmit = async () => {
   const valid = await formRef.value?.validate()
   if (!valid?.valid) return
 
-  store.formPermissions = parsePermissions(permissionsText.value)
+  // Asegura que no mande permisos desde roles (fase 1)
+  store.formPermissions = []
+
   await store.saveFromDialog()
 }
 
 const onReset = () => {
-  if (store.isEdit) {
-    // reset a valores originales del edit (mantenemos lo que trae el store)
-    permissionsText.value = store.formPermissions?.length
-      ? JSON.stringify(store.formPermissions, null, 2)
-      : ''
-  } else {
-    store.resetForm()
-    permissionsText.value = ''
-  }
+  store.resetForm()
 }
 </script>
 
@@ -88,15 +54,6 @@ const onReset = () => {
             />
           </VCol>
 
-          <VCol cols="12">
-            <AppTextarea
-              v-model="permissionsText"
-              label="Permisos"
-              rows="10"
-              placeholder='Ej: ["users.read","users.create"]  o  users.read, users.create'
-            />
-          </VCol>
-
           <VCol cols="12" class="d-flex gap-4">
             <VBtn type="submit" :loading="store.saving">
               Guardar
@@ -104,11 +61,11 @@ const onReset = () => {
 
             <VBtn
               type="button"
-              color="secondary"
+              color="warning"
               variant="tonal"
-              @click="onReset"
+              @click="store.closeDrawer()"
             >
-              Reset
+              Cancelar
             </VBtn>
           </VCol>
         </VRow>
