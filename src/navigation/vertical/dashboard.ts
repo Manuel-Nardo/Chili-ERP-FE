@@ -22,15 +22,12 @@ export default [
     icon: { icon: 'tabler-settings' },
     children: [
       {
-        title: 'User',
-        icon: { icon: 'tabler-user' },
-        children: [
-          { title: 'List', to: 'apps-user-list' },
-          { title: 'View', to: { name: 'apps-user-view-id', params: { id: 21 } } },
-        ],
+        title: 'Usuarios',
+        icon: { icon: 'tabler-user' },                  
+        to: 'apps-users',
       },
       {
-        title: 'Roles & Permissions',
+        title: 'Roles y Permisos',
         icon: { icon: 'tabler-lock' },
         children: [
           { title: 'Roles', to: 'apps-roles' },

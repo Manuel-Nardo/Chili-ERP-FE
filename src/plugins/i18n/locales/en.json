@@ -208,6 +208,10 @@
       "ariaLabel": {
         "item": "item"
       }
+    },
+    "dataIterator": {
+      "loadingText": "Cargando...",
+      "noDataText": "No hay información disponible"
     }
   }
 }

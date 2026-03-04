@@ -29,8 +29,10 @@ export const useRolesStore = defineStore('roles', () => {
   const openPermissions = async (role: { id: number; name?: string; permissions?: string[] }) => {
     permissionsRoleId.value = role.id
     permissionsRoleName.value = role.name ?? ''
+    selectedPermissions.value = []
     // si ya traes permissions en roles, úsalo:
-    selectedPermissions.value = Array.isArray(role.permissions) ? [...role.permissions] : []
+    const res: any = await $api(`/rbac/roles/${role.id}?with_permissions=1`)
+    selectedPermissions.value = res.data?.permissions ?? []
     permissionsDrawerOpen.value = true
   }
 
