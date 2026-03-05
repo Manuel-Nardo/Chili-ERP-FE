@@ -4,6 +4,18 @@ export default [
     icon: { icon: 'tabler-database' },
     children: [
       {
+        title: 'Zonas',
+        to: 'catalogs-zones',
+      },
+      {
+        title: 'Tipos Clientes',
+        to: 'catalogs-client-types',
+      },
+      {
+        title: 'Clientes',
+        to: 'catalogs-customers',
+      },
+      {
         title: 'Impuestos',
         to: 'catalogs-taxes',
       },
