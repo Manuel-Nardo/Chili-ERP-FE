@@ -4,31 +4,34 @@ export default [
     icon: { icon: 'tabler-database' },
     children: [
       {
-        title: 'Zonas',
-        to: 'catalogs-zones',
-      },
-      {
-        title: 'Tipos Clientes',
-        to: 'catalogs-client-types',
-      },
-      {
         title: 'Clientes',
-        to: 'catalogs-customers',
+        icon: { icon: 'tabler-building-store' },
+        children: [
+          {title: 'Zonas', to: 'catalogs-zones'},
+          {title: 'Tipos Clientes', to: 'catalogs-client-types'},
+          {title: 'Clientes', to: 'catalogs-customers'},
+        ]
       },
+
       {
-        title: 'Impuestos',
-        to: 'catalogs-taxes',
+        title: 'Pedidos',
+        icon: { icon: 'tabler-receipt' },
+        children: [
+          {title: 'Tipos Pedidos', to: 'catalogs-order-types'}
+        ]
       },
+
       {
         title: 'Productos',
-        to: 'dashboards-crm',
-      },
-      {
-        title: 'Sucursales',
-        to: 'dashboards-ecommerce',
+        icon: { icon: 'tabler-package' },
+        children: [
+          {title: 'Impuestos', to: 'catalogs-taxes'},
+          {title: 'Productos', to: 'catalogs-client-types'}
+        ]
       },
     ],
   },
+    
   {
     title: 'Configuración',
     icon: { icon: 'tabler-settings' },

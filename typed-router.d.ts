@@ -50,6 +50,7 @@ declare module 'vue-router/auto-routes' {
     'apps-email-label': RouteRecordInfo<'apps-email-label', '/apps/email/:label', { label: ParamValue<true> }, { label: ParamValue<false> }>,
     'catalogs-client-types': RouteRecordInfo<'catalogs-client-types', '/catalogs/client-types', Record<never, never>, Record<never, never>>,
     'catalogs-customers': RouteRecordInfo<'catalogs-customers', '/catalogs/customers', Record<never, never>, Record<never, never>>,
+    'catalogs-order-types': RouteRecordInfo<'catalogs-order-types', '/catalogs/order-types', Record<never, never>, Record<never, never>>,
     'catalogs-taxes': RouteRecordInfo<'catalogs-taxes', '/catalogs/taxes', Record<never, never>, Record<never, never>>,
     'catalogs-zones': RouteRecordInfo<'catalogs-zones', '/catalogs/zones', Record<never, never>, Record<never, never>>,
     'charts-apex-chart': RouteRecordInfo<'charts-apex-chart', '/charts/apex-chart', Record<never, never>, Record<never, never>>,
