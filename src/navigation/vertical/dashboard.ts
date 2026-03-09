@@ -27,8 +27,10 @@ export default [
         title: 'Productos',
         icon: { icon: 'tabler-package' },
         children: [
-          {title: 'Impuestos', to: 'catalogs-taxes'},
-          {title: 'Productos', to: 'catalogs-client-types'}
+          {title: 'Unidades', to: 'catalogs-unidades'},
+          {title: 'Impuestos', to: 'catalogs-impuestos'},
+          {title: 'Lineas', to: 'catalogs-lineas'},
+          {title: 'Productos', to: 'catalogs-productos'}
         ]
       },
     ],
