@@ -115,7 +115,7 @@ const onDelete = async (id: number) => {
       <template #item.tipoPedido="{ item }">
         <div class="d-flex align-center gap-2">
           <VIcon icon="tabler-clipboard-list" size="18" class="text-medium-emphasis" />
-          <span class="font-weight-medium">{{ item.tipoPedido?.nombre ?? '—' }}</span>
+          <span class="font-weight-medium">{{ item.tipo_pedido?.nombre ?? '—' }}</span>
         </div>
       </template>
 

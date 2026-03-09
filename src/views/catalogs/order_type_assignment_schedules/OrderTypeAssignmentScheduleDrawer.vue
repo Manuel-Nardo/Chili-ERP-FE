@@ -1,15 +1,12 @@
 <script setup lang="ts">
 import { useOrderTypeAssignmentSchedulesStore } from '@/stores/catalogs/order_type_assignment_schedules.store'
-import { useOrderTypeAssignmentsStore } from '@/stores/catalogs/order_type_assignments.store'
 import { computed, ref } from 'vue'
 
 const store = useOrderTypeAssignmentSchedulesStore()
-const assignmentsStore = useOrderTypeAssignmentsStore()
-
 const formRef = ref<any>()
 
 const title = computed(() =>
-  store.isEdit ? 'Editar horario' : 'Nuevo horario',
+  store.isEdit ? 'Editar horario personalizado' : 'Nuevo horario personalizado',
 )
 
 const dayItems = [
@@ -22,18 +19,16 @@ const dayItems = [
   { title: 'Domingo', value: 7 },
 ]
 
-const assignmentItems = computed(() =>
-  assignmentsStore.items
-    .filter(i => !i.usar_horario_default)
-    .map(i => ({
-      title: `${i.cliente?.nombre ?? 'Sucursal'} - ${i.tipoPedido?.nombre ?? 'Tipo'}`,
-      value: i.id,
-    })),
-)
-
 const onSubmit = async () => {
-  const valid = await formRef.value?.validate()
-  if (!valid?.valid) return
+  const result = await formRef.value?.validate()
+
+  const isValid =
+    typeof result === 'boolean'
+      ? result
+      : !!result?.valid
+
+  if (!isValid) return
+
   await store.saveFromDialog()
 }
 </script>
@@ -59,18 +54,23 @@ const onSubmit = async () => {
     <VDivider />
 
     <div class="px-6 py-5">
+      <VAlert
+        type="info"
+        variant="tonal"
+        class="mb-4"
+      >
+        <div class="text-body-2">
+          <strong>Sucursal:</strong>
+          {{ store.selectedAssignment?.cliente?.nombre ?? '—' }}
+        </div>
+        <div class="text-body-2 mt-1">
+          <strong>Tipo de pedido:</strong>
+          {{ store.selectedAssignment?.tipo_pedido?.nombre ?? '—' }}
+        </div>
+      </VAlert>
+
       <VForm ref="formRef" @submit.prevent="onSubmit">
         <VRow>
-          <VCol cols="12">
-            <AppSelect
-              v-model="store.formClienteTipoPedidoId"
-              :items="assignmentItems"
-              label="Asignación"
-              placeholder="Selecciona una asignación"
-              :rules="[v => !!v || 'Requerido']"
-            />
-          </VCol>
-
           <VCol cols="12">
             <AppSelect
               v-model="store.formDiaSemana"

@@ -9,7 +9,7 @@ type OrderTypeScheduleRow = {
   hora_inicio: string
   hora_fin: string
   activo: boolean
-  tipoPedido?: {
+  tipo_pedido?: {
     id: number
     nombre: string
   } | null
@@ -20,6 +20,35 @@ export const useOrderTypeSchedulesStore = defineStore('order_type_schedules', ()
 
   const items = ref<OrderTypeScheduleRow[]>([])
   const loading = ref(false)
+
+  const drawerOpen = ref(false)
+  const saving = ref(false)
+  const editingId = ref<number | null>(null)
+
+  const formTipoPedidoId = ref<number | null>(null)
+  const formDiaSemana = ref<number | null>(null)
+  const formDiasSemana = ref<number[]>([])
+  const formHoraInicio = ref('')
+  const formHoraFin = ref('')
+  const formActivo = ref(true)
+
+  const isEdit = computed(() => editingId.value !== null)
+
+  const handleApiError = (e: any) => {
+    const status = e?.status ?? e?.response?.status
+    const data = e?.data ?? e?.response?.data ?? e?.response?._data
+
+    const msg =
+      data?.message ??
+      data?.errors?.tipo_pedido_id?.[0] ??
+      data?.errors?.dia_semana?.[0] ??
+      data?.errors?.hora_inicio?.[0] ??
+      data?.errors?.hora_fin?.[0] ??
+      (status === 422 ? 'Error de validación.' : null) ??
+      'Ocurrió un error inesperado.'
+
+    error('Error', msg)
+  }
 
   const fetchItems = async () => {
     loading.value = true
@@ -45,14 +74,10 @@ export const useOrderTypeSchedulesStore = defineStore('order_type_schedules', ()
     activo: boolean
   }) => {
     try {
-      const res: any = await $api('/catalogos/tipos-pedido-horarios', {
+      return await $api('/catalogos/tipos-pedido-horarios', {
         method: 'POST',
         body: payload,
       })
-
-      await success('Listo', 'Horario default creado correctamente.')
-      await fetchItems()
-      return res
     } catch (e: any) {
       handleApiError(e)
       throw e
@@ -70,13 +95,11 @@ export const useOrderTypeSchedulesStore = defineStore('order_type_schedules', ()
     },
   ) => {
     try {
-      const res: any = await $api(`/catalogos/tipos-pedido-horarios/${id}`, {
+      const res = await $api(`/catalogos/tipos-pedido-horarios/${id}`, {
         method: 'PUT',
         body: payload,
       })
 
-      await success('Listo', 'Horario default actualizado correctamente.')
-      await fetchItems()
       return res
     } catch (e: any) {
       handleApiError(e)
@@ -86,7 +109,10 @@ export const useOrderTypeSchedulesStore = defineStore('order_type_schedules', ()
 
   const deleteItem = async (id: number) => {
     try {
-      await $api(`/catalogos/tipos-pedido-horarios/${id}`, { method: 'DELETE' })
+      await $api(`/catalogos/tipos-pedido-horarios/${id}`, {
+        method: 'DELETE',
+      })
+
       await success('Eliminado', 'Horario default eliminado correctamente.')
       await fetchItems()
     } catch (e: any) {
@@ -95,38 +121,11 @@ export const useOrderTypeSchedulesStore = defineStore('order_type_schedules', ()
     }
   }
 
-  const handleApiError = (e: any) => {
-    const status = e?.status ?? e?.response?.status
-    const data = e?.data ?? e?.response?.data ?? e?.response?._data
-
-    const msg =
-      data?.message ??
-      data?.errors?.tipo_pedido_id?.[0] ??
-      data?.errors?.dia_semana?.[0] ??
-      data?.errors?.hora_inicio?.[0] ??
-      data?.errors?.hora_fin?.[0] ??
-      (status === 422 ? 'Error de validación.' : null) ??
-      'Ocurrió un error inesperado.'
-
-    error('Error', msg)
-  }
-
-  const drawerOpen = ref(false)
-  const saving = ref(false)
-  const editingId = ref<number | null>(null)
-
-  const formTipoPedidoId = ref<number | null>(null)
-  const formDiaSemana = ref<number | null>(null)
-  const formHoraInicio = ref('')
-  const formHoraFin = ref('')
-  const formActivo = ref(true)
-
-  const isEdit = computed(() => editingId.value !== null)
-
   const resetForm = () => {
     editingId.value = null
     formTipoPedidoId.value = null
     formDiaSemana.value = null
+    formDiasSemana.value = []
     formHoraInicio.value = ''
     formHoraFin.value = ''
     formActivo.value = true
@@ -141,6 +140,7 @@ export const useOrderTypeSchedulesStore = defineStore('order_type_schedules', ()
     editingId.value = item.id
     formTipoPedidoId.value = item.tipo_pedido_id
     formDiaSemana.value = item.dia_semana
+    formDiasSemana.value = []
     formHoraInicio.value = item.hora_inicio
     formHoraFin.value = item.hora_fin
     formActivo.value = !!item.activo
@@ -152,27 +152,59 @@ export const useOrderTypeSchedulesStore = defineStore('order_type_schedules', ()
   }
 
   const saveFromDialog = async () => {
-    if (
-      !formTipoPedidoId.value ||
-      !formDiaSemana.value ||
-      !formHoraInicio.value.trim() ||
-      !formHoraFin.value.trim()
-    ) return
-
     saving.value = true
-    try {
-      const payload = {
-        tipo_pedido_id: formTipoPedidoId.value,
-        dia_semana: formDiaSemana.value,
-        hora_inicio: formHoraInicio.value,
-        hora_fin: formHoraFin.value,
-        activo: formActivo.value,
-      }
 
-      if (isEdit.value)
-        await updateItem(editingId.value!, payload)
-      else
-        await createItem(payload)
+    try {
+      if (isEdit.value) {
+        if (
+          !formTipoPedidoId.value ||
+          !formDiaSemana.value ||
+          !formHoraInicio.value.trim() ||
+          !formHoraFin.value.trim()
+        ) {
+          error('Error', 'Completa los campos requeridos.')
+          return
+        }
+
+        await updateItem(editingId.value!, {
+          tipo_pedido_id: formTipoPedidoId.value,
+          dia_semana: formDiaSemana.value,
+          hora_inicio: formHoraInicio.value,
+          hora_fin: formHoraFin.value,
+          activo: formActivo.value,
+        })
+
+        await success('Listo', 'Horario default actualizado correctamente.')
+        await fetchItems()
+      } else {
+        if (
+          !formTipoPedidoId.value ||
+          !Array.isArray(formDiasSemana.value) ||
+          formDiasSemana.value.length === 0 ||
+          !formHoraInicio.value.trim() ||
+          !formHoraFin.value.trim()
+        ) {
+          error('Error', 'Completa los campos requeridos.')
+          return
+        }
+
+        const diasUnicos = [...new Set(formDiasSemana.value)]
+
+        await Promise.all(
+          diasUnicos.map(dia =>
+            createItem({
+              tipo_pedido_id: formTipoPedidoId.value!,
+              dia_semana: dia,
+              hora_inicio: formHoraInicio.value,
+              hora_fin: formHoraFin.value,
+              activo: formActivo.value,
+            }),
+          ),
+        )
+
+        await success('Listo', 'Horarios default creados correctamente.')
+        await fetchItems()
+      }
 
       closeDrawer()
       resetForm()
@@ -184,11 +216,6 @@ export const useOrderTypeSchedulesStore = defineStore('order_type_schedules', ()
   return {
     items,
     loading,
-    fetchItems,
-    createItem,
-    updateItem,
-    deleteItem,
-
     drawerOpen,
     saving,
     editingId,
@@ -196,14 +223,20 @@ export const useOrderTypeSchedulesStore = defineStore('order_type_schedules', ()
 
     formTipoPedidoId,
     formDiaSemana,
+    formDiasSemana,
     formHoraInicio,
     formHoraFin,
     formActivo,
 
+    fetchItems,
+    createItem,
+    updateItem,
+    deleteItem,
+
+    resetForm,
     openCreate,
     openEdit,
     closeDrawer,
-    resetForm,
     saveFromDialog,
   }
 })

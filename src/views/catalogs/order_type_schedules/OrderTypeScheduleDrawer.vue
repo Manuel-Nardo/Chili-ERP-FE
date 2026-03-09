@@ -76,7 +76,7 @@ const onSubmit = async () => {
             />
           </VCol>
 
-          <VCol cols="12" v-if="store.isEdit">
+          <VCol v-if="store.isEdit" cols="12">
             <AppSelect
               v-model="store.formDiaSemana"
               :items="dayItems"
@@ -86,7 +86,7 @@ const onSubmit = async () => {
             />
           </VCol>
 
-          <VCol cols="12" v-else>
+          <VCol v-else cols="12">
             <AppSelect
               v-model="store.formDiasSemana"
               :items="dayItems"
@@ -95,7 +95,7 @@ const onSubmit = async () => {
               multiple
               chips
               closable-chips
-              :rules="[v => Array.isArray(v) && v.length > 0 || 'Requerido']"
+              :rules="[v => (Array.isArray(v) && v.length > 0) || 'Requerido']"
             />
           </VCol>
 
@@ -126,7 +126,11 @@ const onSubmit = async () => {
           </VCol>
 
           <VCol cols="12" class="d-flex gap-4">
-            <VBtn type="submit" color="primary" :loading="store.saving">
+            <VBtn
+              type="submit"
+              color="primary"
+              :loading="store.saving"
+            >
               Guardar
             </VBtn>
 

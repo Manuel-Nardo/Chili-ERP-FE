@@ -19,8 +19,7 @@ export default [
         children: [
           {title: 'Tipos Pedidos', to: 'catalogs-order-types'},
           {title: 'Horarios Default',to: 'catalogs-order-type-schedules'},
-          {title: 'Asignación por Sucursal', to: 'catalogs-order-type-assignments'},
-          {title: 'Horarios Personalizados',to : 'catalogs-order-type-assignment-schedules'}
+          {title: 'Asignación por Sucursal', to: 'catalogs-order-type-assignments'}          
         ]
       },
 

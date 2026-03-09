@@ -2,29 +2,33 @@ import { useSwal } from '@/composables/useSwal'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-type OrderTypeScheduleRow = {
+type AssignmentRow = {
   id: number
+  cliente_id: number
   tipo_pedido_id: number
-  dia_semana: number
-  hora_inicio: string
-  hora_fin: string
+  usar_horario_default: boolean
   activo: boolean
-  tipoPedido?: {
+  cliente?: {
     id: number
     nombre: string
   } | null
+  tipo_pedido?: {
+    id: number
+    nombre: string
+  } | null
+  horarios?: Array<any>
 }
 
-export const useOrderTypeSchedulesStore = defineStore('order_type_schedules', () => {
+export const useOrderTypeAssignmentsStore = defineStore('order_type_assignments', () => {
   const { success, error } = useSwal()
 
-  const items = ref<OrderTypeScheduleRow[]>([])
+  const items = ref<AssignmentRow[]>([])
   const loading = ref(false)
 
   const fetchItems = async () => {
     loading.value = true
     try {
-      const res: any = await $api('/catalogos/tipos-pedido-horarios')
+      const res: any = await $api('/catalogos/clientes-tipos-pedido')
 
       if (Array.isArray(res?.data?.data?.data)) items.value = res.data.data.data
       else if (Array.isArray(res?.data?.data)) items.value = res.data.data
@@ -38,35 +42,42 @@ export const useOrderTypeSchedulesStore = defineStore('order_type_schedules', ()
   }
 
   const createItem = async (payload: {
+    cliente_id: number
     tipo_pedido_id: number
-    dia_semana: number
-    hora_inicio: string
-    hora_fin: string
+    usar_horario_default: boolean
     activo: boolean
   }) => {
-    return await $api('/catalogos/tipos-pedido-horarios', {
-      method: 'POST',
-      body: payload,
-    })
+    try {
+      const res: any = await $api('/catalogos/clientes-tipos-pedido', {
+        method: 'POST',
+        body: payload,
+      })
+
+      await success('Listo', 'Asignación creada correctamente.')
+      await fetchItems()
+      return res
+    } catch (e: any) {
+      handleApiError(e)
+      throw e
+    }
   }
 
   const updateItem = async (
     id: number,
     payload: {
+      cliente_id?: number
       tipo_pedido_id?: number
-      dia_semana?: number
-      hora_inicio?: string
-      hora_fin?: string
+      usar_horario_default?: boolean
       activo?: boolean
     },
   ) => {
     try {
-      const res: any = await $api(`/catalogos/tipos-pedido-horarios/${id}`, {
+      const res: any = await $api(`/catalogos/clientes-tipos-pedido/${id}`, {
         method: 'PUT',
         body: payload,
       })
 
-      await success('Listo', 'Horario default actualizado correctamente.')
+      await success('Listo', 'Asignación actualizada correctamente.')
       await fetchItems()
       return res
     } catch (e: any) {
@@ -77,8 +88,8 @@ export const useOrderTypeSchedulesStore = defineStore('order_type_schedules', ()
 
   const deleteItem = async (id: number) => {
     try {
-      await $api(`/catalogos/tipos-pedido-horarios/${id}`, { method: 'DELETE' })
-      await success('Eliminado', 'Horario default eliminado correctamente.')
+      await $api(`/catalogos/clientes-tipos-pedido/${id}`, { method: 'DELETE' })
+      await success('Eliminado', 'Asignación eliminada correctamente.')
       await fetchItems()
     } catch (e: any) {
       handleApiError(e)
@@ -92,36 +103,31 @@ export const useOrderTypeSchedulesStore = defineStore('order_type_schedules', ()
 
     const msg =
       data?.message ??
+      data?.errors?.cliente_id?.[0] ??
       data?.errors?.tipo_pedido_id?.[0] ??
-      data?.errors?.dia_semana?.[0] ??
-      data?.errors?.hora_inicio?.[0] ??
-      data?.errors?.hora_fin?.[0] ??
       (status === 422 ? 'Error de validación.' : null) ??
       'Ocurrió un error inesperado.'
 
     error('Error', msg)
   }
 
+  // UI Drawer
   const drawerOpen = ref(false)
   const saving = ref(false)
   const editingId = ref<number | null>(null)
 
+  const formClienteId = ref<number | null>(null)
   const formTipoPedidoId = ref<number | null>(null)
-  const formDiaSemana = ref<number | null>(null)
-  const formDiasSemana = ref<number[]>([])
-  const formHoraInicio = ref('')
-  const formHoraFin = ref('')
+  const formUsarHorarioDefault = ref(true)
   const formActivo = ref(true)
 
   const isEdit = computed(() => editingId.value !== null)
 
   const resetForm = () => {
     editingId.value = null
+    formClienteId.value = null
     formTipoPedidoId.value = null
-    formDiaSemana.value = null
-    formDiasSemana.value = []
-    formHoraInicio.value = ''
-    formHoraFin.value = ''
+    formUsarHorarioDefault.value = true
     formActivo.value = true
   }
 
@@ -130,13 +136,11 @@ export const useOrderTypeSchedulesStore = defineStore('order_type_schedules', ()
     drawerOpen.value = true
   }
 
-  const openEdit = (item: OrderTypeScheduleRow) => {
+  const openEdit = (item: AssignmentRow) => {
     editingId.value = item.id
+    formClienteId.value = item.cliente_id
     formTipoPedidoId.value = item.tipo_pedido_id
-    formDiaSemana.value = item.dia_semana
-    formDiasSemana.value = []
-    formHoraInicio.value = item.hora_inicio
-    formHoraFin.value = item.hora_fin
+    formUsarHorarioDefault.value = !!item.usar_horario_default
     formActivo.value = !!item.activo
     drawerOpen.value = true
   }
@@ -145,75 +149,29 @@ export const useOrderTypeSchedulesStore = defineStore('order_type_schedules', ()
     drawerOpen.value = false
   }
 
-const saveFromDialog = async () => {
-  console.log('saveFromDialog', {
-    isEdit: isEdit.value,
-    formTipoPedidoId: formTipoPedidoId.value,
-    formDiaSemana: formDiaSemana.value,
-    formDiasSemana: formDiasSemana.value,
-    formHoraInicio: formHoraInicio.value,
-    formHoraFin: formHoraFin.value,
-    formActivo: formActivo.value,
-  })
+  const saveFromDialog = async () => {
+    if (!formClienteId.value || !formTipoPedidoId.value) return
 
-  saving.value = true
-
-  try {
-    if (isEdit.value) {
-      if (
-        !formTipoPedidoId.value ||
-        !formDiaSemana.value ||
-        !formHoraInicio.value.trim() ||
-        !formHoraFin.value.trim()
-      ) {
-        console.log('faltan datos en edición')
-        return
-      }
-
+    saving.value = true
+    try {
       const payload = {
+        cliente_id: formClienteId.value,
         tipo_pedido_id: formTipoPedidoId.value,
-        dia_semana: formDiaSemana.value,
-        hora_inicio: formHoraInicio.value,
-        hora_fin: formHoraFin.value,
+        usar_horario_default: formUsarHorarioDefault.value,
         activo: formActivo.value,
       }
 
-      await updateItem(editingId.value!, payload)
-    } else {
-      if (
-        !formTipoPedidoId.value ||
-        !formDiasSemana.value.length ||
-        !formHoraInicio.value.trim() ||
-        !formHoraFin.value.trim()
-      ) {
-        console.log('faltan datos en creación')
-        return
-      }
+      if (isEdit.value)
+        await updateItem(editingId.value!, payload)
+      else
+        await createItem(payload)
 
-      const dias = [...new Set(formDiasSemana.value)]
-
-      await Promise.all(
-        dias.map(dia =>
-          createItem({
-            tipo_pedido_id: formTipoPedidoId.value!,
-            dia_semana: dia,
-            hora_inicio: formHoraInicio.value,
-            hora_fin: formHoraFin.value,
-            activo: formActivo.value,
-          }),
-        ),
-      )
-
-      await success('Listo', 'Horarios default creados correctamente.')
-      await fetchItems()
+      closeDrawer()
+      resetForm()
+    } finally {
+      saving.value = false
     }
-
-    closeDrawer()
-    resetForm()
-  } finally {
-    saving.value = false
   }
-}
 
   return {
     items,
@@ -228,11 +186,9 @@ const saveFromDialog = async () => {
     editingId,
     isEdit,
 
+    formClienteId,
     formTipoPedidoId,
-    formDiaSemana,
-    formDiasSemana,
-    formHoraInicio,
-    formHoraFin,
+    formUsarHorarioDefault,
     formActivo,
 
     openCreate,
