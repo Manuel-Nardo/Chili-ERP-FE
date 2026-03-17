@@ -7,9 +7,11 @@ export default [
         title: 'Clientes',
         icon: { icon: 'tabler-building-store' },
         children: [
+          {title: 'Series', to: 'catalogs-tipos-serie'},
           {title: 'Zonas', to: 'catalogs-zones'},
           {title: 'Tipos Clientes', to: 'catalogs-client-types'},
           {title: 'Clientes', to: 'catalogs-customers'},
+          {title: 'Series x Cliente', to: 'catalogs-series-sucursal'},
         ]
       },
 
@@ -35,7 +37,16 @@ export default [
       },
     ],
   },
-    
+  {
+    title: 'Pedidos',
+    icon: { icon: 'tabler-shopping-cart' },
+    children: [
+      {
+        title: 'Nuevo pedido',
+        to: 'pedidos-pedidos',
+      },
+    ],
+  },    
   {
     title: 'Configuración',
     icon: { icon: 'tabler-settings' },
