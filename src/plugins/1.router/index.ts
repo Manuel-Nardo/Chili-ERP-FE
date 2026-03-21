@@ -36,6 +36,14 @@ const router = createRouter({
   ],
 })
 
+console.log(
+  '[ROUTES INIT]',
+  router.getRoutes().map(r => ({
+    name: r.name,
+    path: r.path,
+  })),
+)
+
 setupGuards(router)
 
 export { router }

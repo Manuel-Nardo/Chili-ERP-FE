@@ -73,4 +73,21 @@ export const routes: RouteRecordRaw[] = [
     name: 'apps-ecommerce-dashboard',
     component: () => import('@/pages/dashboards/ecommerce.vue'),
   },
+  {
+    path: '/pedidos/pedido-sugerencias/nuevo',
+    name: 'pedidos-pedido-sugerencias-nuevo',
+    component: () => import('@/views/pedidos/pedido-sugerencias/nuevo.vue'),
+    meta: {
+      navActiveLink: 'pedidos-pedido-sugerencias',
+    },
+  },
+  {
+    path: '/pedidos/pedido-sugerencias/:id(\\d+)',
+    name: 'pedidos-pedido-sugerencias-editar',
+    component: () => import('@/views/pedidos/pedido-sugerencias/editar.vue'),
+    meta: {
+      navActiveLink: 'pedidos-pedido-sugerencias',
+    },
+  },
+
 ]

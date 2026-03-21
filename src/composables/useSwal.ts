@@ -12,17 +12,33 @@ const base = Swal.mixin({
 })
 
 export const useSwal = () => {
-  const confirmDelete = async (opts?: { title?: string; text?: string }) => {
+  const confirm = async (opts?: {
+    title?: string
+    text?: string
+    confirmText?: string
+    cancelText?: string
+    icon?: 'warning' | 'question' | 'info' | 'success' | 'error'
+  }) => {
     const res = await base.fire({
-      icon: 'warning',
-      title: opts?.title ?? '¿Eliminar?',
-      text: opts?.text ?? 'Esta acción no se puede deshacer.',
+      icon: opts?.icon ?? 'question',
+      title: opts?.title ?? '¿Estás seguro?',
+      text: opts?.text ?? '',
       showCancelButton: true,
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar',
+      confirmButtonText: opts?.confirmText ?? 'Sí',
+      cancelButtonText: opts?.cancelText ?? 'Cancelar',
     })
 
     return res.isConfirmed
+  }
+
+  const confirmDelete = async (opts?: { title?: string; text?: string }) => {
+    return confirm({
+      icon: 'warning',
+      title: opts?.title ?? '¿Eliminar?',
+      text: opts?.text ?? 'Esta acción no se puede deshacer.',
+      confirmText: 'Sí, eliminar',
+      cancelText: 'Cancelar',
+    })
   }
 
   const success = (title = 'Listo', text?: string) =>
@@ -42,5 +58,5 @@ export const useSwal = () => {
       confirmButtonColor: '#dc2626',
     })
 
-  return { confirmDelete, success, error, raw: base }
+  return { confirm, confirmDelete, success, error, raw: base }
 }

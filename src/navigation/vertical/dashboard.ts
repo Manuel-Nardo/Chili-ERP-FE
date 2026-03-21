@@ -42,11 +42,11 @@ export default [
     icon: { icon: 'tabler-shopping-cart' },
     children: [
       {
-        title: 'Nuevo pedido',
-        to: 'pedidos-pedidos',
+        title: 'Pedidos Sugerencias',
+        to: 'pedidos-pedido-sugerencias',
       },
     ],
-  },    
+  },
   {
     title: 'Configuración',
     icon: { icon: 'tabler-settings' },
