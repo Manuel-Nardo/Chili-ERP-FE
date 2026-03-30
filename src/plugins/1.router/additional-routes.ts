@@ -89,5 +89,13 @@ export const routes: RouteRecordRaw[] = [
       navActiveLink: 'pedidos-pedido-sugerencias',
     },
   },
+  {
+    path: '/pedidos/pedidos-erp/:id/generar-remision',
+    name: 'pedidos-pedidos-erp-generar-remision',
+    component: () => import('@/views/pedidos/pedidos-erp/PedidoGenerarRemisionView.vue'),
+    meta: {
+      navActiveLink: 'pedidos-erp',
+    },
+  },
 
 ]

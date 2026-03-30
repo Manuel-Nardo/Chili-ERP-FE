@@ -1,6 +1,7 @@
 import { useSwal } from '@/composables/useSwal'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 export type PedidoSugerenciaDetalleRow = {
   id?: number
@@ -26,6 +27,8 @@ export type PedidoSugerenciaRow = {
   origen: string
   modelo: string | null
   observaciones: string | null
+  pedido_erp_id?: number | null
+  pedido_generado_at?: string | null
   cliente?: {
     id: number
     nombre: string
@@ -46,124 +49,119 @@ type SelectOption = {
 }
 
 export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () => {
-    const { success, error, confirmDelete, confirm } = useSwal()
-    const dbg = (...args: any[]) => console.log('[pedido-store]', ...args)
+  const { success, error, confirm } = useSwal()
+  const router = useRouter()
+  const dbg = (...args: any[]) => console.log('[pedido-store]', ...args)
 
-    const loading = ref(false)
-    const saving = ref(false)
-    const generating = ref(false)
-    const loadingOne = ref(false)
+  const loading = ref(false)
+  const saving = ref(false)
+  const generating = ref(false)
+  const generatingPedido = ref(false)
+  const generatingPedidoId = ref<number | null>(null)
+  const loadingOne = ref(false)
 
-    const items = ref<PedidoSugerenciaRow[]>([])
-    const total = ref(0)
-    const currentPage = ref(1)
-    const perPage = ref(15)
+  const items = ref<PedidoSugerenciaRow[]>([])
+  const total = ref(0)
+  const currentPage = ref(1)
+  const perPage = ref(15)
 
-    const clientes = ref<SelectOption[]>([])
-    const tiposPedido = ref<SelectOption[]>([])
-    const productos = ref<SelectOption[]>([])
+  const clientes = ref<SelectOption[]>([])
+  const tiposPedido = ref<SelectOption[]>([])
+  const productos = ref<SelectOption[]>([])
 
-    const filtersClienteId = ref<number | null>(null)
-    const filtersTipoPedidoId = ref<number | null>(null)
-    const filtersEstatus = ref<string | null>(null)
-    const filtersOrigen = ref<string | null>(null)
-    const filtersFechaDesde = ref<string | null>(null)
-    const filtersFechaHasta = ref<string | null>(null)
-    const q = ref('')
+  const filtersClienteId = ref<number | null>(null)
+  const filtersTipoPedidoId = ref<number | null>(null)
+  const filtersEstatus = ref<string | null>(null)
+  const filtersOrigen = ref<string | null>(null)
+  const filtersFechaDesde = ref<string | null>(null)
+  const filtersFechaHasta = ref<string | null>(null)
+  const q = ref('')
 
-    const editingId = ref<number | null>(null)
+  const editingId = ref<number | null>(null)
 
-    const formClienteId = ref<number | null>(null)
-    const formTipoPedidoId = ref<number | null>(null)
-    const formFechaObjetivo = ref<string | null>(null)
-    const formOrigen = ref<string>('manual')
-    const formModelo = ref<string>('forecast_v1')
-    const formObservaciones = ref<string>('')
+  const formClienteId = ref<number | null>(null)
+  const formTipoPedidoId = ref<number | null>(null)
+  const formFechaObjetivo = ref<string | null>(null)
+  const formOrigen = ref<string>('manual')
+  const formModelo = ref<string>('forecast_v1')
+  const formObservaciones = ref<string>('')
 
-    const formDiasHistorico = ref<number>(84)
-    const formForzarRegeneracion = ref(false)
-    const formEstatus = ref<string>('borrador')
+  const formDiasHistorico = ref<number>(84)
+  const formForzarRegeneracion = ref(false)
+  const formEstatus = ref<string>('borrador')
 
-    const formDetalles = ref<PedidoSugerenciaDetalleRow[]>([])
+  const formDetalles = ref<PedidoSugerenciaDetalleRow[]>([])
 
-    const isEdit = computed(() => editingId.value !== null)
-    const isDraft = computed(() => formEstatus.value === 'borrador')
+  const isEdit = computed(() => editingId.value !== null)
+  const isDraft = computed(() => formEstatus.value === 'borrador')
 
-    const headers = [
-        { title: 'ID', key: 'id', align: 'start' },
-        { title: 'Cliente', key: 'cliente' },
-        { title: 'Tipo pedido', key: 'tipo_pedido' },
-        { title: 'Fecha objetivo', key: 'fecha_objetivo' },
-        { title: 'Origen', key: 'origen' },
-        { title: 'Modelo', key: 'modelo' },
-        { title: 'Estatus', key: 'estatus' },
-        { title: 'Productos', key: 'productos', align: 'center' },
-        { title: 'Acciones', key: 'actions', sortable: false, align: 'end' },
-    ]
+  const headers = [
+    { title: 'ID', key: 'id', align: 'start' },
+    { title: 'Cliente', key: 'cliente' },
+    { title: 'Tipo pedido', key: 'tipo_pedido' },
+    { title: 'Fecha objetivo', key: 'fecha_objetivo' },
+    { title: 'Origen', key: 'origen' },
+    { title: 'Modelo', key: 'modelo' },
+    { title: 'Estatus', key: 'estatus' },
+    { title: 'Productos', key: 'productos', align: 'center' },
+    { title: 'Acciones', key: 'actions', sortable: false, align: 'end' },
+  ]
 
-    const estatusOptions = [
-        { title: 'Borrador', value: 'borrador' },
-        { title: 'Confirmado', value: 'confirmado' },
-        { title: 'Cancelado', value: 'cancelado' },
-        { title: 'Procesado', value: 'procesado' },
-    ]
+  const estatusOptions = [
+    { title: 'Borrador', value: 'borrador' },
+    { title: 'Confirmado', value: 'confirmado' },
+    { title: 'Cancelado', value: 'cancelado' },
+    { title: 'Procesado', value: 'procesado' },
+  ]
 
-    const origenOptions = [
-        { title: 'Manual', value: 'manual' },
-        { title: 'Forecast', value: 'forecast' },
-    ]
+  const origenOptions = [
+    { title: 'Manual', value: 'manual' },
+    { title: 'Forecast', value: 'forecast' },
+  ]
 
-    const totalProductos = computed(() => formDetalles.value.length)
-    const totalSugerido = computed(() => formDetalles.value.reduce((acc, row) => acc + Number(row.cantidad_sugerida || 0), 0))
-    const totalAjustado = computed(() => formDetalles.value.reduce((acc, row) => acc + Number(row.cantidad_ajustada || 0), 0))
-    const totalFinal = computed(() => formDetalles.value.reduce((acc, row) => acc + Number(row.cantidad_final || 0), 0))
+  const totalProductos = computed(() => formDetalles.value.length)
+  const totalSugerido = computed(() => formDetalles.value.reduce((acc, row) => acc + Number(row.cantidad_sugerida || 0), 0))
+  const totalAjustado = computed(() => formDetalles.value.reduce((acc, row) => acc + Number(row.cantidad_ajustada || 0), 0))
+  const totalFinal = computed(() => formDetalles.value.reduce((acc, row) => acc + Number(row.cantidad_final || 0), 0))
 
-    const handleApiError = (e: any) => {
-        const status = e?.status ?? e?.response?.status
-        const data = e?.data ?? e?.response?.data ?? e?.response?._data
+  const handleApiError = (e: any) => {
+    const status = e?.status ?? e?.response?.status
+    const data = e?.data ?? e?.response?.data ?? {}
+    const message = data?.message || e?.message || 'Ocurrió un error inesperado.'
 
-        let msg =
-        data?.message
-        ?? data?.errors?.cliente_id?.[0]
-        ?? data?.errors?.tipo_pedido_id?.[0]
-        ?? data?.errors?.fecha_objetivo?.[0]
-        ?? data?.errors?.detalles?.[0]
+    dbg('handleApiError', { status, data, error: e })
 
-        if (!msg && status === 422)
-            msg = 'Error de validación.'
+    error('Error', message)
+  }
 
-        if (!msg)
-            msg = 'Ocurrió un error inesperado.'
+  const unwrapResponse = (res: any) => {
+    if (!res) return null
+    if (res.data !== undefined) return res.data
+    return res
+  }
 
-        error('Error', msg)
-    }
+  const extractPayloadData = (res: any) => {
+    const payload = unwrapResponse(res)
+    return payload?.data ?? payload ?? null
+  }
 
-    const unwrapResponse = (res: any) => {
-        const payload = res?.data ?? res
-        return payload
-    }
-
-    const extractPayloadData = (res: any) => {
-        const payload = unwrapResponse(res)
-
-        const extracted =
-        payload?.data?.data
-        ?? payload?.data
-        ?? payload?.sugerencia
-        ?? payload
-        ?? null
-
-        return extracted
-    }
-
-  const extractCollectionRows = (res: any): any[] => {
+  const extractCollectionRows = (res: any) => {
     const payload = unwrapResponse(res)
 
-    if (Array.isArray(payload)) return payload
-    if (Array.isArray(payload?.data)) return payload.data
-    if (Array.isArray(payload?.data?.data)) return payload.data.data
-    if (Array.isArray(payload?.results)) return payload.results
-    if (Array.isArray(payload?.data?.results)) return payload.data.results
+    if (Array.isArray(payload))
+      return payload
+
+    if (Array.isArray(payload?.data))
+      return payload.data
+
+    if (Array.isArray(payload?.data?.data))
+      return payload.data.data
+
+    if (Array.isArray(payload?.results))
+      return payload.results
+
+    if (Array.isArray(payload?.data?.results))
+      return payload.data.results
 
     return []
   }
@@ -171,38 +169,37 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
   const extractCollectionMeta = (res: any) => {
     const payload = unwrapResponse(res)
 
-    if (payload?.meta) return payload.meta
-    if (payload?.data?.meta) return payload.data.meta
-    if (payload?.pagination) return payload.pagination
-    if (payload?.data?.pagination) return payload.data.pagination
-
-    return {}
+    return payload?.meta
+      ?? payload?.data?.meta
+      ?? {
+        total: payload?.total ?? payload?.data?.total ?? 0,
+        current_page: payload?.current_page ?? payload?.data?.current_page ?? 1,
+        per_page: payload?.per_page ?? payload?.data?.per_page ?? perPage.value,
+      }
   }
 
-  const extractDetalles = (row: any): any[] => {
-    if (Array.isArray(row?.detalles)) return row.detalles
-    if (Array.isArray(row?.detalle)) return row.detalle
-    if (Array.isArray(row?.pedido_sugerencia_detalles)) return row.pedido_sugerencia_detalles
-    if (Array.isArray(row?.detalles?.data)) return row.detalles.data
-
-    return []
+  const extractDetalles = (row: any) => {
+    return row?.detalles
+      ?? row?.detalle
+      ?? row?.details
+      ?? []
   }
 
-  const normalizeDetalle = (d: any): PedidoSugerenciaDetalleRow => ({
-    id: d?.id ? Number(d.id) : undefined,
-    producto_id: Number(d?.producto_id ?? d?.producto?.id ?? 0),
-    producto: d?.producto
+  const normalizeDetalle = (row: any): PedidoSugerenciaDetalleRow => ({
+    id: row?.id ? Number(row.id) : undefined,
+    producto_id: Number(row?.producto_id ?? row?.articulo_id ?? 0),
+    producto: row?.producto
       ? {
-          id: Number(d.producto.id),
-          nombre: d.producto.nombre,
-          clave: d.producto.clave ?? null,
+          id: Number(row.producto.id),
+          nombre: row.producto.nombre,
+          clave: row.producto.clave ?? null,
         }
       : null,
-    cantidad_sugerida: Number(d?.cantidad_sugerida ?? 0),
-    cantidad_ajustada: Number(d?.cantidad_ajustada ?? d?.cantidad_sugerida ?? 0),
-    cantidad_final: Number(d?.cantidad_final ?? d?.cantidad_ajustada ?? d?.cantidad_sugerida ?? 0),
-    observaciones: d?.observaciones ?? null,
-    metadata: d?.metadata ?? null,
+    cantidad_sugerida: Number(row?.cantidad_sugerida ?? 0),
+    cantidad_ajustada: Number(row?.cantidad_ajustada ?? row?.cantidad_sugerida ?? 0),
+    cantidad_final: Number(row?.cantidad_final ?? row?.cantidad_ajustada ?? row?.cantidad_sugerida ?? 0),
+    observaciones: row?.observaciones ?? null,
+    metadata: row?.metadata ?? null,
   })
 
   const normalizeSugerencia = (row: any): PedidoSugerenciaRow => {
@@ -215,6 +212,8 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
       origen: row?.origen ?? 'manual',
       modelo: row?.modelo ?? null,
       observaciones: row?.observaciones ?? null,
+      pedido_erp_id: row?.pedido_erp_id ? Number(row.pedido_erp_id) : null,
+      pedido_generado_at: row?.pedido_generado_at ?? null,
       cliente: row?.cliente ?? null,
       tipo_pedido: row?.tipo_pedido ?? row?.tipoPedido ?? null,
       detalles: extractDetalles(row).map(normalizeDetalle),
@@ -647,10 +646,10 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
     dbg('confirmItem:start', targetId)
 
     const ok = await confirm({
-        title: '¿Confirmar sugerencia?',
-        text: 'La sugerencia pasará a estatus confirmado.',
-        confirmText: 'Sí, confirmar',
-        icon: 'question',
+      title: '¿Confirmar sugerencia?',
+      text: 'La sugerencia pasará a estatus confirmado.',
+      confirmText: 'Sí, confirmar',
+      icon: 'question',
     })
 
     if (!ok) return
@@ -677,15 +676,70 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
     }
   }
 
+  const generarPedido = async (id?: number) => {
+    const targetId = id ?? editingId.value
+    if (!targetId) return null
+
+    const ok = await confirm({
+      title: '¿Generar pedido?',
+      text: 'Se generará el pedido ERP a partir de esta sugerencia confirmada.',
+      confirmText: 'Sí, generar',
+      icon: 'question',
+    })
+
+    if (!ok) return null
+
+    generatingPedido.value = true
+    generatingPedidoId.value = targetId
+
+    try {
+      const res: any = await $api(`/pedido-sugerencias/${targetId}/generar-pedido`, {
+        method: 'POST',
+      })
+
+      dbg('generarPedido:response', res)
+
+      const payload = unwrapResponse(res)
+      const pedido = payload?.data ?? payload ?? null
+
+      if (!pedido?.id) {
+        throw new Error('El backend no devolvió el ID del pedido generado.')
+      }
+
+      await fetchItems(currentPage.value)
+
+      if (editingId.value === targetId) {
+        await fetchById(targetId)
+      }
+
+      await success(
+        'Listo',
+        pedido?.folio
+          ? `Pedido generado correctamente. Folio: ${pedido.folio}.`
+          : 'Pedido generado correctamente.',
+      )
+
+      await router.push('/pedidos/pedido-sugerencias')
+
+      return pedido
+    } catch (e: any) {
+      handleApiError(e)
+      throw e
+    } finally {
+      generatingPedido.value = false
+      generatingPedidoId.value = null
+    }
+  }
+
   const cancelItem = async (id?: number) => {
     const targetId = id ?? editingId.value
     if (!targetId) return
 
     const ok = await confirm({
-        title: '¿Cancelar sugerencia?',
-        text: 'La sugerencia se marcará como cancelada.',
-        confirmText: 'Sí, cancelar',
-        icon: 'warning',
+      title: '¿Cancelar sugerencia?',
+      text: 'La sugerencia se marcará como cancelada.',
+      confirmText: 'Sí, cancelar',
+      icon: 'warning',
     })
 
     if (!ok) return
@@ -726,6 +780,8 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
     loading,
     saving,
     generating,
+    generatingPedido,
+    generatingPedidoId,
     loadingOne,
 
     items,
@@ -786,6 +842,7 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
     save,
     generarForecast,
     confirmItem,
+    generarPedido,
     cancelItem,
     clearFilters,
   }

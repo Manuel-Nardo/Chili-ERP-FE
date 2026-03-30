@@ -34,17 +34,13 @@ const origenColor = (origen: string) => {
 }
 
 const goNew = async () => {
-  console.log('[PedidoList] click nuevo')
-  console.log('[PedidoList] current route before push', router.currentRoute.value)
-
   try {
-    const result = await router.push('/pedidos/pedido-sugerencias/nuevo')
-    console.log('[PedidoList] push result', result)
-    console.log('[PedidoList] current route after push', router.currentRoute.value)
+    await router.push('/pedidos/pedido-sugerencias/nuevo')
   } catch (e) {
     console.error('[PedidoList] push error', e)
   }
 }
+
 const goEdit = (id: number) => router.push(`/pedidos/pedido-sugerencias/${id}`)
 </script>
 
@@ -156,6 +152,32 @@ const goEdit = (id: number) => router.push(`/pedidos/pedido-sugerencias/${id}`)
             </VTooltip>
 
             <VTooltip
+              v-if="item.estatus === 'confirmado' && !item.pedido_erp_id"
+              text="Generar pedido"
+              location="top"
+            >
+              <template #activator="{ props }">
+                <IconBtn
+                  v-bind="props"
+                  :disabled="store.generatingPedido"
+                  @click="store.generarPedido(item.id)"
+                >
+                  <VProgressCircular
+                    v-if="store.generatingPedido && store.generatingPedidoId === item.id"
+                    indeterminate
+                    size="18"
+                    width="2"
+                  />
+                  <VIcon
+                    v-else
+                    icon="tabler-file-invoice"
+                    class="text-primary"
+                  />
+                </IconBtn>
+              </template>
+            </VTooltip>
+
+            <VTooltip
               v-if="item.estatus !== 'cancelado' && item.estatus !== 'procesado'"
               text="Cancelar"
               location="top"
@@ -163,6 +185,18 @@ const goEdit = (id: number) => router.push(`/pedidos/pedido-sugerencias/${id}`)
               <template #activator="{ props }">
                 <IconBtn v-bind="props" @click="store.cancelItem(item.id)">
                   <VIcon icon="tabler-ban" class="text-warning" />
+                </IconBtn>
+              </template>
+            </VTooltip>
+
+            <VTooltip
+              v-if="item.estatus === 'procesado' || item.pedido_erp_id"
+              text="Pedido generado"
+              location="top"
+            >
+              <template #activator="{ props }">
+                <IconBtn v-bind="props" disabled>
+                  <VIcon icon="tabler-circle-check-filled" class="text-info" />
                 </IconBtn>
               </template>
             </VTooltip>

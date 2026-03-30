@@ -63,12 +63,16 @@ const canGenerate = computed(() => {
     && !!store.formFechaObjetivo
 })
 
+const canGeneratePedido = computed(() => {
+  return store.isEdit && store.formEstatus === 'confirmado'
+})
+
 const canEditHeader = computed(() => {
   return !store.isEdit && store.isDraft
 })
 
 const canEditDetail = computed(() => {
-  return store.isDraft
+  return store.isDraft && store.formEstatus !== 'procesado'
 })
 
 const onSave = async () => {
@@ -95,6 +99,10 @@ const onGenerar = async () => {
 
 const onConfirm = async () => {
   await store.confirmItem()
+}
+
+const onGenerarPedido = async () => {
+  await store.generarPedido()
 }
 
 const onCancel = async () => {
@@ -135,6 +143,15 @@ const toggleConfig = () => {
                     variant="tonal"
                   >
                     {{ store.formEstatus }}
+                  </VChip>
+
+                  <VChip
+                    v-if="store.formEstatus === 'procesado'"
+                    size="small"
+                    color="success"
+                    variant="tonal"
+                  >
+                    Pedido ERP generado
                   </VChip>
                 </div>
 
@@ -200,6 +217,20 @@ const toggleConfig = () => {
             </VBtn>
 
             <VBtn
+              v-if="canGeneratePedido"
+              color="primary"
+              variant="tonal"
+              :loading="store.generatingPedido"
+              @click="onGenerarPedido"
+            >
+              <VIcon
+                icon="tabler-file-invoice"
+                class="me-1"
+              />
+              Generar pedido
+            </VBtn>
+
+            <VBtn
               v-if="store.isEdit && store.formEstatus !== 'cancelado' && store.formEstatus !== 'procesado'"
               color="warning"
               variant="tonal"
@@ -217,93 +248,35 @@ const toggleConfig = () => {
 
       <VCard class="mb-4">
         <VCardText class="py-3">
-          <div class="d-flex flex-wrap align-center justify-space-between gap-3 mb-3">
-            <div class="d-flex flex-wrap gap-2">
-              <VChip
-                size="small"
-                color="primary"
-                variant="tonal"
-              >
+          <div class="d-flex flex-wrap align-center justify-space-between gap-3">
+            <div>
+              <div class="text-subtitle-1 font-weight-medium">
+                Configuración general
+              </div>
+              <div class="text-body-2 text-medium-emphasis">
+                Cliente, tipo de pedido y parámetros para forecast.
+              </div>
+            </div>
+
+            <div class="d-flex align-center gap-2 flex-wrap">
+              <VChip size="small" variant="tonal">
                 Cliente: {{ clienteLabel }}
               </VChip>
 
-              <VChip
-                size="small"
-                color="primary"
-                variant="tonal"
-              >
+              <VChip size="small" variant="tonal">
                 Tipo: {{ tipoPedidoLabel }}
               </VChip>
 
-              <VChip
-                size="small"
-                color="secondary"
-                variant="tonal"
-              >
-                Fecha: {{ store.formFechaObjetivo || '-' }}
-              </VChip>
-
-              <VChip
-                size="small"
-                color="info"
-                variant="tonal"
-              >
+              <VChip size="small" variant="tonal">
                 Origen: {{ origenLabel }}
               </VChip>
 
-              <VChip
-                size="small"
-                color="default"
-                variant="outlined"
-              >
-                Modelo: {{ store.formModelo || '-' }}
-              </VChip>
-            </div>
-
-            <div class="d-flex flex-wrap gap-2">
-              <VChip
-                size="small"
-                color="success"
-                variant="tonal"
-              >
-                Productos: {{ store.totalProductos }}
-              </VChip>
-
-              <VChip
-                size="small"
-                color="warning"
-                variant="tonal"
-              >
-                Sugerido: {{ store.totalSugerido }}
-              </VChip>
-
-              <VChip
-                size="small"
-                color="info"
-                variant="tonal"
-              >
-                Ajustado: {{ store.totalAjustado }}
-              </VChip>
-
-              <VChip
-                size="small"
-                color="primary"
-                variant="tonal"
-              >
-                Final: {{ store.totalFinal }}
-              </VChip>
-
               <VBtn
-                v-if="canEditHeader"
-                size="small"
                 variant="text"
-                color="secondary"
+                size="small"
+                :disabled="!canEditHeader"
                 @click="toggleConfig"
               >
-                <VIcon
-                  :icon="showConfig ? 'tabler-chevron-up' : 'tabler-adjustments-horizontal'"
-                  class="me-1"
-                />
                 {{ showConfig ? 'Ocultar filtros' : 'Editar filtros' }}
               </VBtn>
             </div>

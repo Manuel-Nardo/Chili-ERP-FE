@@ -45,6 +45,10 @@ export default [
         title: 'Pedidos Sugerencias',
         to: 'pedidos-pedido-sugerencias',
       },
+      {
+        title: 'Pedidos ERP',
+        to: 'pedidos-pedidos-erp',
+      },
     ],
   },
   {

@@ -140,6 +140,8 @@ declare module 'vue-router/auto-routes' {
     'pages-typography': RouteRecordInfo<'pages-typography', '/pages/typography', Record<never, never>, Record<never, never>>,
     'pages-user-profile-tab': RouteRecordInfo<'pages-user-profile-tab', '/pages/user-profile/:tab', { tab: ParamValue<true> }, { tab: ParamValue<false> }>,
     'pedidos-pedido-sugerencias': RouteRecordInfo<'pedidos-pedido-sugerencias', '/pedidos/pedido-sugerencias', Record<never, never>, Record<never, never>>,
+    'pedidos-pedidos-erp': RouteRecordInfo<'pedidos-pedidos-erp', '/pedidos/pedidos-erp', Record<never, never>, Record<never, never>>,
+    'pedidos-pedidos-erp-id': RouteRecordInfo<'pedidos-pedidos-erp-id', '/pedidos/pedidos-erp/:id', { id: ParamValue<true> }, { id: ParamValue<false> }>,
     'register': RouteRecordInfo<'register', '/register', Record<never, never>, Record<never, never>>,
     'tables-data-table': RouteRecordInfo<'tables-data-table', '/tables/data-table', Record<never, never>, Record<never, never>>,
     'tables-simple-table': RouteRecordInfo<'tables-simple-table', '/tables/simple-table', Record<never, never>, Record<never, never>>,
