@@ -5,9 +5,9 @@ import PedidoSugerenciasList from '@/views/pedidos/pedido-sugerencias/PedidoSuge
 <template>
   <VRow>
     <VCol cols="12">
-      <h4 class="text-h4 mb-1">Pedido sugerido</h4>
+      <h4 class="text-h4 mb-1">Prepedidos</h4>
       <p class="text-body-1 mb-0">
-        Administra sugerencias de pedido, forecast y ajustes operativos.
+        Administra prepedidos manuales y sugeridos, con una operación visual consistente.
       </p>
     </VCol>
 

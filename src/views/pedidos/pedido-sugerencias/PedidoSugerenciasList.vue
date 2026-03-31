@@ -33,31 +33,37 @@ const origenColor = (origen: string) => {
   }
 }
 
-const goNew = async () => {
-  try {
-    await router.push('/pedidos/pedido-sugerencias/nuevo')
-  } catch (e) {
-    console.error('[PedidoList] push error', e)
+const origenLabel = (origen: string) => {
+  switch (origen) {
+    case 'forecast': return 'Sugerido'
+    case 'manual': return 'Manual'
+    default: return origen
   }
 }
 
-const goEdit = (id: number) => router.push(`/pedidos/pedido-sugerencias/${id}`)
+const goNew = async () => {
+  await store.openNewWorkspace()
+}
+
+const goEdit = async (id: number) => {
+  await store.openEditWorkspace(id)
+}
 </script>
 
 <template>
-  <div>
+  <div class="position-relative">
     <PedidoSugerenciasFilters />
 
-    <VCard>
+    <VCard class="prepedido-card">
       <VCardText class="d-flex flex-wrap align-center justify-space-between gap-3">
         <div>
           <div class="d-flex align-center gap-2">
-            <VIcon icon="tabler-bulb" />
-            <h4 class="text-h5 mb-0">Pedido sugerido</h4>
+            <VIcon icon="tabler-package" />
+            <h4 class="text-h5 mb-0">Prepedidos</h4>
           </div>
 
           <div class="text-body-2 text-medium-emphasis">
-            Genera, ajusta y confirma sugerencias de pedido por cliente y tipo.
+            Gestiona prepedidos manuales y sugeridos con una vista uniforme.
           </div>
         </div>
 
@@ -72,9 +78,14 @@ const goEdit = (id: number) => router.push(`/pedidos/pedido-sugerencias/${id}`)
             Refrescar
           </VBtn>
 
-          <VBtn color="primary" @click="goNew">
+          <VBtn
+            color="primary"
+            :loading="store.actionLoading && store.actionLoadingKey === 'go-new'"
+            :disabled="store.actionLoading"
+            @click="goNew"
+          >
             <VIcon icon="tabler-plus" class="me-1" />
-            Nueva sugerencia
+            Nuevo prepedido
           </VBtn>
         </div>
       </VCardText>
@@ -109,7 +120,7 @@ const goEdit = (id: number) => router.push(`/pedidos/pedido-sugerencias/${id}`)
 
         <template #item.origen="{ item }">
           <VChip size="small" :color="origenColor(item.origen)" variant="tonal">
-            {{ item.origen }}
+            {{ origenLabel(item.origen) }}
           </VChip>
         </template>
 
@@ -131,21 +142,35 @@ const goEdit = (id: number) => router.push(`/pedidos/pedido-sugerencias/${id}`)
 
         <template #item.actions="{ item }">
           <div class="d-flex justify-end gap-1">
-            <VTooltip text="Abrir workspace" location="top">
+            <VTooltip text="Abrir prepedido" location="top">
               <template #activator="{ props }">
-                <IconBtn v-bind="props" @click="goEdit(item.id)">
-                  <VIcon icon="tabler-edit" />
+                <IconBtn
+                  v-bind="props"
+                  :disabled="store.actionLoading"
+                  @click="goEdit(item.id)"
+                >
+                  <VProgressCircular
+                    v-if="store.actionLoading && store.actionLoadingKey === `open-${item.id}`"
+                    indeterminate
+                    size="18"
+                    width="2"
+                  />
+                  <VIcon v-else icon="tabler-edit" />
                 </IconBtn>
               </template>
             </VTooltip>
 
             <VTooltip
               v-if="item.estatus === 'borrador'"
-              text="Confirmar"
+              text="Confirmar prepedido"
               location="top"
             >
               <template #activator="{ props }">
-                <IconBtn v-bind="props" @click="store.confirmItem(item.id)">
+                <IconBtn
+                  v-bind="props"
+                  :disabled="store.actionLoading"
+                  @click="store.confirmItem(item.id)"
+                >
                   <VIcon icon="tabler-circle-check" class="text-success" />
                 </IconBtn>
               </template>
@@ -153,13 +178,13 @@ const goEdit = (id: number) => router.push(`/pedidos/pedido-sugerencias/${id}`)
 
             <VTooltip
               v-if="item.estatus === 'confirmado' && !item.pedido_erp_id"
-              text="Generar pedido"
+              text="Generar pedido ERP"
               location="top"
             >
               <template #activator="{ props }">
                 <IconBtn
                   v-bind="props"
-                  :disabled="store.generatingPedido"
+                  :disabled="store.generatingPedido || store.actionLoading"
                   @click="store.generarPedido(item.id)"
                 >
                   <VProgressCircular
@@ -179,11 +204,15 @@ const goEdit = (id: number) => router.push(`/pedidos/pedido-sugerencias/${id}`)
 
             <VTooltip
               v-if="item.estatus !== 'cancelado' && item.estatus !== 'procesado'"
-              text="Cancelar"
+              text="Cancelar prepedido"
               location="top"
             >
               <template #activator="{ props }">
-                <IconBtn v-bind="props" @click="store.cancelItem(item.id)">
+                <IconBtn
+                  v-bind="props"
+                  :disabled="store.actionLoading"
+                  @click="store.cancelItem(item.id)"
+                >
                   <VIcon icon="tabler-ban" class="text-warning" />
                 </IconBtn>
               </template>
@@ -191,7 +220,7 @@ const goEdit = (id: number) => router.push(`/pedidos/pedido-sugerencias/${id}`)
 
             <VTooltip
               v-if="item.estatus === 'procesado' || item.pedido_erp_id"
-              text="Pedido generado"
+              text="Pedido ERP generado"
               location="top"
             >
               <template #activator="{ props }">
@@ -206,7 +235,7 @@ const goEdit = (id: number) => router.push(`/pedidos/pedido-sugerencias/${id}`)
         <template #no-data>
           <div class="py-8 text-center text-medium-emphasis">
             <VIcon icon="tabler-package-off" class="mb-2" />
-            <div>No hay sugerencias para mostrar.</div>
+            <div>No hay prepedidos para mostrar.</div>
           </div>
         </template>
 
@@ -225,5 +254,34 @@ const goEdit = (id: number) => router.push(`/pedidos/pedido-sugerencias/${id}`)
         </template>
       </VDataTable>
     </VCard>
+
+    <VOverlay
+      :model-value="store.actionLoading"
+      contained
+      persistent
+      class="align-center justify-center"
+    >
+      <div class="loading-card">
+        <VIcon icon="tabler-home" size="42" color="primary" class="mb-3" />
+        <div class="text-subtitle-1 font-weight-medium">{{ store.actionLoadingText }}</div>
+        <div class="text-body-2 text-medium-emphasis mt-1">Espera un momento...</div>
+      </div>
+    </VOverlay>
   </div>
 </template>
+
+<style scoped>
+.prepedido-card {
+  border: 1px solid rgba(var(--v-theme-primary), 0.08);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+}
+
+.loading-card {
+  min-width: 260px;
+  padding: 24px 28px;
+  border-radius: 18px;
+  background: rgb(var(--v-theme-surface));
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
+  text-align: center;
+}
+</style>

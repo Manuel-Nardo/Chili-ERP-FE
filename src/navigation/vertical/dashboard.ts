@@ -7,33 +7,33 @@ export default [
         title: 'Clientes',
         icon: { icon: 'tabler-building-store' },
         children: [
-          {title: 'Series', to: 'catalogs-tipos-serie'},
-          {title: 'Zonas', to: 'catalogs-zones'},
-          {title: 'Tipos Clientes', to: 'catalogs-client-types'},
-          {title: 'Clientes', to: 'catalogs-customers'},
-          {title: 'Series x Cliente', to: 'catalogs-series-sucursal'},
-        ]
+          { title: 'Series', to: 'catalogs-tipos-serie' },
+          { title: 'Zonas', to: 'catalogs-zones' },
+          { title: 'Tipos Clientes', to: 'catalogs-client-types' },
+          { title: 'Clientes', to: 'catalogs-customers' },
+          { title: 'Series x Cliente', to: 'catalogs-series-sucursal' },
+        ],
       },
 
       {
         title: 'Pedidos',
         icon: { icon: 'tabler-receipt' },
         children: [
-          {title: 'Tipos Pedidos', to: 'catalogs-order-types'},
-          {title: 'Horarios Default',to: 'catalogs-order-type-schedules'},
-          {title: 'Asignación por Sucursal', to: 'catalogs-order-type-assignments'}          
-        ]
+          { title: 'Tipos Pedidos', to: 'catalogs-order-types' },
+          { title: 'Horarios Default', to: 'catalogs-order-type-schedules' },
+          { title: 'Asignación por Sucursal', to: 'catalogs-order-type-assignments' },
+        ],
       },
 
       {
         title: 'Productos',
         icon: { icon: 'tabler-package' },
         children: [
-          {title: 'Unidades', to: 'catalogs-unidades'},
-          {title: 'Impuestos', to: 'catalogs-impuestos'},
-          {title: 'Lineas', to: 'catalogs-lineas'},
-          {title: 'Productos', to: 'catalogs-productos'}
-        ]
+          { title: 'Unidades', to: 'catalogs-unidades' },
+          { title: 'Impuestos', to: 'catalogs-impuestos' },
+          { title: 'Lineas', to: 'catalogs-lineas' },
+          { title: 'Productos', to: 'catalogs-productos' },
+        ],
       },
     ],
   },
@@ -52,12 +52,26 @@ export default [
     ],
   },
   {
+    title: 'Remisiones',
+    icon: { icon: 'tabler-truck-delivery' },
+    children: [
+      {
+        title: 'Remisiones ERP',
+        to: 'remisiones-remisiones-erp',
+      },
+      {
+        title: 'Recepción',
+        to: 'remisiones-recepcion',
+      },
+    ],
+  },
+  {
     title: 'Configuración',
     icon: { icon: 'tabler-settings' },
     children: [
       {
         title: 'Usuarios',
-        icon: { icon: 'tabler-user' },                  
+        icon: { icon: 'tabler-user' },
         to: 'apps-users',
       },
       {

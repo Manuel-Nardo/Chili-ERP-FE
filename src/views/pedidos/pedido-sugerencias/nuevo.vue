@@ -12,11 +12,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div>
-    <VRow>
-      <VCol cols="12">
-        <PedidoSugerenciaWorkspace />
-      </VCol>
-    </VRow>
-  </div>
+  <VRow>
+    <VCol cols="12">
+      <PedidoSugerenciaWorkspace />
+    </VCol>
+  </VRow>
 </template>

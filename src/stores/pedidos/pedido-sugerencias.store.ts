@@ -42,33 +42,50 @@ export type PedidoSugerenciaRow = {
   updated_at?: string
 }
 
-type SelectOption = {
+type SelectOption<T = string | number> = {
   title: string
-  value: number
+  value: T
   raw?: any
 }
 
 export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () => {
   const { success, error, confirm } = useSwal()
   const router = useRouter()
-  const dbg = (...args: any[]) => console.log('[pedido-store]', ...args)
+  const dbg = (...args: any[]) => console.log('[pedido-sugerencias.store]', ...args)
 
+  // =========================
+  // State UI / Loading
+  // =========================
   const loading = ref(false)
+  const loadingOne = ref(false)
+  const loadingCatalogs = ref(false)
+  const loadingProductos = ref(false)
   const saving = ref(false)
   const generating = ref(false)
   const generatingPedido = ref(false)
   const generatingPedidoId = ref<number | null>(null)
-  const loadingOne = ref(false)
+  const hydratingAllProductos = ref(false)
 
+  const actionLoadingText = ref('')
+
+  // =========================
+  // Listado
+  // =========================
   const items = ref<PedidoSugerenciaRow[]>([])
   const total = ref(0)
   const currentPage = ref(1)
   const perPage = ref(15)
 
-  const clientes = ref<SelectOption[]>([])
-  const tiposPedido = ref<SelectOption[]>([])
-  const productos = ref<SelectOption[]>([])
+  // =========================
+  // Catálogos
+  // =========================
+  const clientes = ref<SelectOption<number>[]>([])
+  const tiposPedido = ref<SelectOption<number>[]>([])
+  const productos = ref<SelectOption<number>[]>([])
 
+  // =========================
+  // Filtros
+  // =========================
   const filtersClienteId = ref<number | null>(null)
   const filtersTipoPedidoId = ref<number | null>(null)
   const filtersEstatus = ref<string | null>(null)
@@ -77,13 +94,21 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
   const filtersFechaHasta = ref<string | null>(null)
   const q = ref('')
 
+  // =========================
+  // Form
+  // =========================
   const editingId = ref<number | null>(null)
 
   const formClienteId = ref<number | null>(null)
   const formTipoPedidoId = ref<number | null>(null)
   const formFechaObjetivo = ref<string | null>(null)
-  const formOrigen = ref<string>('manual')
-  const formModelo = ref<string>('forecast_v1')
+
+  // Nueva lógica de UX:
+  // visualmente sólo Manual / Sugerido
+  const formOrigen = ref<'manual' | 'sugerido'>('manual')
+
+  // manual => null / sugerido => forecast_v1 normalmente
+  const formModelo = ref<string | null>(null)
   const formObservaciones = ref<string>('')
 
   const formDiasHistorico = ref<number>(84)
@@ -92,8 +117,22 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
 
   const formDetalles = ref<PedidoSugerenciaDetalleRow[]>([])
 
+  // =========================
+  // Computed
+  // =========================
   const isEdit = computed(() => editingId.value !== null)
   const isDraft = computed(() => formEstatus.value === 'borrador')
+  const isManual = computed(() => formOrigen.value === 'manual')
+  const isSugerido = computed(() => formOrigen.value === 'sugerido')
+
+  const totalProductos = computed(() => formDetalles.value.length)
+  const totalSugerido = computed(() => formDetalles.value.reduce((acc, row) => acc + Number(row.cantidad_sugerida || 0), 0))
+  const totalAjustado = computed(() => formDetalles.value.reduce((acc, row) => acc + Number(row.cantidad_ajustada || 0), 0))
+  const totalFinal = computed(() => formDetalles.value.reduce((acc, row) => acc + Number(row.cantidad_final || 0), 0))
+
+  const canHydrateManualProducts = computed(() => {
+    return !!formTipoPedidoId.value && isDraft.value && isManual.value
+  })
 
   const headers = [
     { title: 'ID', key: 'id', align: 'start' },
@@ -114,23 +153,28 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
     { title: 'Procesado', value: 'procesado' },
   ]
 
-  const origenOptions = [
+  const origenOptions: SelectOption<string>[] = [
     { title: 'Manual', value: 'manual' },
-    { title: 'Forecast', value: 'forecast' },
+    { title: 'Sugerido', value: 'sugerido' },
   ]
 
-  const totalProductos = computed(() => formDetalles.value.length)
-  const totalSugerido = computed(() => formDetalles.value.reduce((acc, row) => acc + Number(row.cantidad_sugerida || 0), 0))
-  const totalAjustado = computed(() => formDetalles.value.reduce((acc, row) => acc + Number(row.cantidad_ajustada || 0), 0))
-  const totalFinal = computed(() => formDetalles.value.reduce((acc, row) => acc + Number(row.cantidad_final || 0), 0))
+  // =========================
+  // Helpers
+  // =========================
+  const startAction = (text: string) => {
+    actionLoadingText.value = text
+    dbg('action:start', text)
+  }
+
+  const endAction = () => {
+    dbg('action:end', actionLoadingText.value)
+    actionLoadingText.value = ''
+  }
 
   const handleApiError = (e: any) => {
-    const status = e?.status ?? e?.response?.status
     const data = e?.data ?? e?.response?.data ?? {}
     const message = data?.message || e?.message || 'Ocurrió un error inesperado.'
-
-    dbg('handleApiError', { status, data, error: e })
-
+    dbg('handleApiError', { error: e, data })
     error('Error', message)
   }
 
@@ -148,20 +192,11 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
   const extractCollectionRows = (res: any) => {
     const payload = unwrapResponse(res)
 
-    if (Array.isArray(payload))
-      return payload
-
-    if (Array.isArray(payload?.data))
-      return payload.data
-
-    if (Array.isArray(payload?.data?.data))
-      return payload.data.data
-
-    if (Array.isArray(payload?.results))
-      return payload.results
-
-    if (Array.isArray(payload?.data?.results))
-      return payload.data.results
+    if (Array.isArray(payload)) return payload
+    if (Array.isArray(payload?.data)) return payload.data
+    if (Array.isArray(payload?.data?.data)) return payload.data.data
+    if (Array.isArray(payload?.results)) return payload.results
+    if (Array.isArray(payload?.data?.results)) return payload.data.results
 
     return []
   }
@@ -179,10 +214,7 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
   }
 
   const extractDetalles = (row: any) => {
-    return row?.detalles
-      ?? row?.detalle
-      ?? row?.details
-      ?? []
+    return row?.detalles ?? row?.detalle ?? row?.details ?? []
   }
 
   const normalizeDetalle = (row: any): PedidoSugerenciaDetalleRow => ({
@@ -202,15 +234,28 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
     metadata: row?.metadata ?? null,
   })
 
+  const normalizeOrigen = (value: any): 'manual' | 'sugerido' => {
+    if (value === 'forecast') return 'sugerido'
+    if (value === 'sugerido') return 'sugerido'
+    return 'manual'
+  }
+
+  const normalizeModelo = (origen: string, modelo: any): string | null => {
+    if (origen === 'manual') return null
+    return modelo ?? 'forecast_v1'
+  }
+
   const normalizeSugerencia = (row: any): PedidoSugerenciaRow => {
-    const normalized = {
+    const origenNormalizado = normalizeOrigen(row?.origen)
+
+    return {
       id: Number(row?.id),
       cliente_id: Number(row?.cliente_id),
       tipo_pedido_id: Number(row?.tipo_pedido_id),
       fecha_objetivo: row?.fecha_objetivo,
       estatus: row?.estatus ?? 'borrador',
-      origen: row?.origen ?? 'manual',
-      modelo: row?.modelo ?? null,
+      origen: origenNormalizado,
+      modelo: normalizeModelo(origenNormalizado, row?.modelo),
       observaciones: row?.observaciones ?? null,
       pedido_erp_id: row?.pedido_erp_id ? Number(row.pedido_erp_id) : null,
       pedido_generado_at: row?.pedido_generado_at ?? null,
@@ -220,14 +265,47 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
       created_at: row?.created_at,
       updated_at: row?.updated_at,
     }
-
-    dbg('normalizeSugerencia', normalized)
-    return normalized
   }
 
+  const syncFormOriginBehavior = () => {
+    if (formOrigen.value === 'manual') {
+      formModelo.value = null
+      formForzarRegeneracion.value = false
+    } else {
+      formModelo.value = formModelo.value || 'forecast_v1'
+    }
+  }
+
+  const mapProductoOptionToDetalle = (option: SelectOption<number>): PedidoSugerenciaDetalleRow => ({
+    producto_id: Number(option.value),
+    producto: {
+      id: Number(option.value),
+      nombre: option.title,
+      clave: option.raw?.clave ?? null,
+    },
+    cantidad_sugerida: 0,
+    cantidad_ajustada: 0,
+    cantidad_final: 0,
+    observaciones: null,
+    metadata: null,
+  })
+
+  const dedupeDetalles = (rows: PedidoSugerenciaDetalleRow[]) => {
+    const seen = new Set<number>()
+    return rows.filter(row => {
+      const productoId = Number(row.producto_id ?? 0)
+      if (!productoId) return false
+      if (seen.has(productoId)) return false
+      seen.add(productoId)
+      return true
+    })
+  }
+
+  // =========================
+  // Fetch catálogos
+  // =========================
   const fetchClientes = async () => {
     try {
-      dbg('fetchClientes:start')
       const res: any = await $api('/catalogos/clientes')
       const payload = unwrapResponse(res)
       const data = payload?.data ?? payload ?? []
@@ -237,17 +315,14 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
         value: Number(item.id),
         raw: item,
       }))
-
-      dbg('fetchClientes:end', clientes.value.length)
     } catch (e) {
-      dbg('fetchClientes:error', e)
       clientes.value = []
+      dbg('fetchClientes:error', e)
     }
   }
 
   const fetchTiposPedido = async () => {
     try {
-      dbg('fetchTiposPedido:start')
       const res: any = await $api('/catalogos/tipos-pedido')
       const payload = unwrapResponse(res)
       const data = payload?.data ?? payload ?? []
@@ -257,22 +332,19 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
         value: Number(item.id),
         raw: item,
       }))
-
-      dbg('fetchTiposPedido:end', tiposPedido.value.length)
     } catch (e) {
-      dbg('fetchTiposPedido:error', e)
       tiposPedido.value = []
+      dbg('fetchTiposPedido:error', e)
     }
   }
 
   const fetchProductosByTipoPedido = async (tipoPedidoId: number | null) => {
-    dbg('fetchProductosByTipoPedido:start', tipoPedidoId)
-
     if (!tipoPedidoId) {
       productos.value = []
-      dbg('fetchProductosByTipoPedido:empty')
       return
     }
+
+    loadingProductos.value = true
 
     try {
       const res: any = await $api(`/catalogos/productos?tipo_pedido_id=${tipoPedidoId}`)
@@ -284,114 +356,38 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
         value: Number(item.id),
         raw: item,
       }))
-
-      dbg('fetchProductosByTipoPedido:end', {
-        tipoPedidoId,
-        productos: productos.value.length,
-      })
     } catch (e) {
-      dbg('fetchProductosByTipoPedido:error', e)
       productos.value = []
+      dbg('fetchProductosByTipoPedido:error', e)
+    } finally {
+      loadingProductos.value = false
     }
   }
 
-  const hydrateFormFromItem = async (item: PedidoSugerenciaRow) => {
-    dbg('hydrateFormFromItem:start', item)
-
-    editingId.value = item.id
-    formClienteId.value = item.cliente_id
-    formTipoPedidoId.value = item.tipo_pedido_id
-    formFechaObjetivo.value = item.fecha_objetivo
-    formOrigen.value = item.origen ?? 'manual'
-    formModelo.value = item.modelo ?? 'forecast_v1'
-    formObservaciones.value = item.observaciones ?? ''
-    formEstatus.value = item.estatus ?? 'borrador'
-
-    await fetchProductosByTipoPedido(item.tipo_pedido_id)
-
-    formDetalles.value = (item.detalles ?? []).map(d => ({
-      id: d.id,
-      producto_id: Number(d.producto_id ?? 0),
-      producto: d.producto ?? null,
-      cantidad_sugerida: Number(d.cantidad_sugerida ?? 0),
-      cantidad_ajustada: Number(d.cantidad_ajustada ?? d.cantidad_sugerida ?? 0),
-      cantidad_final: Number(d.cantidad_final ?? d.cantidad_ajustada ?? d.cantidad_sugerida ?? 0),
-      observaciones: d.observaciones ?? null,
-      metadata: d.metadata ?? null,
-    }))
-
-    dbg('hydrateFormFromItem:end', {
-      editingId: editingId.value,
-      formClienteId: formClienteId.value,
-      formTipoPedidoId: formTipoPedidoId.value,
-      formFechaObjetivo: formFechaObjetivo.value,
-      formOrigen: formOrigen.value,
-      formModelo: formModelo.value,
-      formEstatus: formEstatus.value,
-      detalles: formDetalles.value.length,
-      productos: productos.value.length,
-    })
-  }
-
-  const resetForm = () => {
-    dbg('resetForm')
-
-    editingId.value = null
-
-    formClienteId.value = null
-    formTipoPedidoId.value = null
-    formFechaObjetivo.value = null
-    formOrigen.value = 'manual'
-    formModelo.value = 'forecast_v1'
-    formObservaciones.value = ''
-    formDiasHistorico.value = 84
-    formForzarRegeneracion.value = false
-    formEstatus.value = 'borrador'
-    formDetalles.value = []
-    productos.value = []
-
-    dbg('resetForm:end', {
-      editingId: editingId.value,
-      formClienteId: formClienteId.value,
-      formTipoPedidoId: formTipoPedidoId.value,
-      formFechaObjetivo: formFechaObjetivo.value,
-      detalles: formDetalles.value.length,
-      productos: productos.value.length,
-    })
-  }
-
   const prepareWorkspace = async () => {
-    dbg('prepareWorkspace:start')
-
-    await Promise.all([
-      fetchClientes(),
-      fetchTiposPedido(),
-    ])
-
-    dbg('prepareWorkspace:end', {
-      clientes: clientes.value.length,
-      tiposPedido: tiposPedido.value.length,
-    })
-  }
-
-  const fetchItems = async (page = 1) => {
-    loading.value = true
+    loadingCatalogs.value = true
+    startAction('Preparando catálogo y configuración...')
 
     try {
-      dbg('fetchItems:start', {
-        page,
-        perPage: perPage.value,
-        filters: {
-          cliente_id: filtersClienteId.value,
-          tipo_pedido_id: filtersTipoPedidoId.value,
-          estatus: filtersEstatus.value,
-          origen: filtersOrigen.value,
-          fecha_desde: filtersFechaDesde.value,
-          fecha_hasta: filtersFechaHasta.value,
-          q: q.value,
-        },
-      })
+      await Promise.all([
+        fetchClientes(),
+        fetchTiposPedido(),
+      ])
+    } finally {
+      loadingCatalogs.value = false
+      endAction()
+    }
+  }
 
+  // =========================
+  // Listado
+  // =========================
+  const fetchItems = async (page = 1) => {
+    loading.value = true
+    currentPage.value = page
+    startAction('Cargando prepedidos...')
+
+    try {
       const query = new URLSearchParams()
 
       query.set('page', String(page))
@@ -400,19 +396,18 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
       if (filtersClienteId.value) query.set('cliente_id', String(filtersClienteId.value))
       if (filtersTipoPedidoId.value) query.set('tipo_pedido_id', String(filtersTipoPedidoId.value))
       if (filtersEstatus.value) query.set('estatus', filtersEstatus.value)
-      if (filtersOrigen.value) query.set('origen', filtersOrigen.value)
+
+      // backend antiguo puede seguir manejando forecast/manual
+      if (filtersOrigen.value === 'manual') query.set('origen', 'manual')
+      if (filtersOrigen.value === 'sugerido') query.set('origen', 'forecast')
+
       if (filtersFechaDesde.value) query.set('fecha_desde', filtersFechaDesde.value)
       if (filtersFechaHasta.value) query.set('fecha_hasta', filtersFechaHasta.value)
 
       const res: any = await $api(`/pedido-sugerencias?${query.toString()}`)
 
-      dbg('fetchItems:raw', res)
-
       const rows = extractCollectionRows(res)
       const meta = extractCollectionMeta(res)
-
-      dbg('fetchItems:rows', rows)
-      dbg('fetchItems:meta', meta)
 
       let normalized = Array.isArray(rows) ? rows.map(normalizeSugerencia) : []
 
@@ -431,47 +426,26 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
       items.value = normalized
       total.value = Number(meta.total ?? normalized.length)
       currentPage.value = Number(meta.current_page ?? page)
-
-      dbg('fetchItems:end', {
-        items: items.value.length,
-        total: total.value,
-        currentPage: currentPage.value,
-      })
     } catch (e: any) {
       handleApiError(e)
     } finally {
       loading.value = false
+      endAction()
     }
   }
 
   const fetchById = async (id: number) => {
     loadingOne.value = true
+    startAction('Cargando prepedido...')
 
     try {
-      dbg('fetchById:start', id)
-
       const res: any = await $api(`/pedido-sugerencias/${id}`)
-      dbg('fetchById:raw', res)
-
       const row = extractPayloadData(res)
-      dbg('fetchById:row', row)
 
-      if (!row)
-        throw new Error('No se encontró la sugerencia.')
+      if (!row) throw new Error('No se encontró el prepedido.')
 
       const item = normalizeSugerencia(row)
-      dbg('fetchById:item', item)
-
       await hydrateFormFromItem(item)
-
-      dbg('fetchById:afterHydrate', {
-        editingId: editingId.value,
-        cliente: formClienteId.value,
-        tipoPedido: formTipoPedidoId.value,
-        fecha: formFechaObjetivo.value,
-        detalles: formDetalles.value.length,
-        productos: productos.value.length,
-      })
 
       return item
     } catch (e: any) {
@@ -479,12 +453,55 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
       throw e
     } finally {
       loadingOne.value = false
+      endAction()
     }
   }
 
-  const addDetalle = () => {
-    dbg('addDetalle')
+  // =========================
+  // Form helpers
+  // =========================
+  const resetForm = () => {
+    editingId.value = null
 
+    formClienteId.value = null
+    formTipoPedidoId.value = null
+    formFechaObjetivo.value = null
+    formOrigen.value = 'manual'
+    formModelo.value = null
+    formObservaciones.value = ''
+    formDiasHistorico.value = 84
+    formForzarRegeneracion.value = false
+    formEstatus.value = 'borrador'
+    formDetalles.value = []
+    productos.value = []
+  }
+
+  const hydrateFormFromItem = async (item: PedidoSugerenciaRow) => {
+    editingId.value = item.id
+    formClienteId.value = item.cliente_id
+    formTipoPedidoId.value = item.tipo_pedido_id
+    formFechaObjetivo.value = item.fecha_objetivo
+    formOrigen.value = normalizeOrigen(item.origen)
+    formModelo.value = normalizeModelo(formOrigen.value, item.modelo)
+    formObservaciones.value = item.observaciones ?? ''
+    formEstatus.value = item.estatus ?? 'borrador'
+
+    syncFormOriginBehavior()
+    await fetchProductosByTipoPedido(item.tipo_pedido_id)
+
+    formDetalles.value = (item.detalles ?? []).map(d => ({
+      id: d.id,
+      producto_id: Number(d.producto_id ?? 0),
+      producto: d.producto ?? null,
+      cantidad_sugerida: Number(d.cantidad_sugerida ?? 0),
+      cantidad_ajustada: Number(d.cantidad_ajustada ?? d.cantidad_sugerida ?? 0),
+      cantidad_final: Number(d.cantidad_final ?? d.cantidad_ajustada ?? d.cantidad_sugerida ?? 0),
+      observaciones: d.observaciones ?? null,
+      metadata: d.metadata ?? null,
+    }))
+  }
+
+  const addDetalle = () => {
     formDetalles.value.push({
       producto_id: 0,
       producto: null,
@@ -494,14 +511,10 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
       observaciones: null,
       metadata: null,
     })
-
-    dbg('addDetalle:end', formDetalles.value.length)
   }
 
   const removeDetalle = (index: number) => {
-    dbg('removeDetalle', index)
     formDetalles.value.splice(index, 1)
-    dbg('removeDetalle:end', formDetalles.value.length)
   }
 
   const onProductoChange = (index: number) => {
@@ -510,26 +523,57 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
 
     row.producto = option
       ? {
-          id: option.value,
+          id: Number(option.value),
           nombre: option.title,
           clave: option.raw?.clave ?? null,
         }
       : null
 
-    dbg('onProductoChange', {
-      index,
-      producto_id: row.producto_id,
-      producto: row.producto,
-    })
+    if (!row.cantidad_sugerida) row.cantidad_sugerida = 0
+    if (!row.cantidad_ajustada) row.cantidad_ajustada = row.cantidad_sugerida ?? 0
+    if (!row.cantidad_final) row.cantidad_final = row.cantidad_ajustada ?? row.cantidad_sugerida ?? 0
   }
 
+const hydrateManualProductos = async () => {
+  if (!canHydrateManualProducts.value) return
+
+  hydratingAllProductos.value = true
+  startAction('Cargando productos configurados para el prepedido...')
+
+  try {
+    if (!productos.value.length && formTipoPedidoId.value) {
+      await fetchProductosByTipoPedido(formTipoPedidoId.value)
+    }
+
+    const nuevos = productos.value.map(mapProductoOptionToDetalle)
+    formDetalles.value = dedupeDetalles([...(formDetalles.value ?? []), ...nuevos])
+
+    endAction()
+    hydratingAllProductos.value = false
+
+    await success('Listo', 'Se agregaron los productos configurados del tipo de pedido.')
+  } catch (e: any) {
+    hydratingAllProductos.value = false
+    endAction()
+    handleApiError(e)
+    throw e
+  }
+}
+
+  // =========================
+  // Payload / Save
+  // =========================
   const buildPayload = () => {
-    const payload = {
+    syncFormOriginBehavior()
+
+    const origenBackend = formOrigen.value === 'sugerido' ? 'forecast' : 'manual'
+
+    return {
       cliente_id: formClienteId.value,
       tipo_pedido_id: formTipoPedidoId.value,
       fecha_objetivo: formFechaObjetivo.value,
-      origen: formOrigen.value,
-      modelo: formModelo.value || null,
+      origen: origenBackend,
+      modelo: formOrigen.value === 'sugerido' ? (formModelo.value || 'forecast_v1') : null,
       observaciones: formObservaciones.value.trim() || null,
       detalles: formDetalles.value.map(d => ({
         producto_id: Number(d.producto_id ?? 0),
@@ -540,209 +584,206 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
         metadata: d.metadata ?? null,
       })),
     }
-
-    dbg('buildPayload', payload)
-    return payload
   }
 
-  const save = async () => {
-    saving.value = true
+const save = async () => {
+  saving.value = true
+  startAction(isEdit.value ? 'Guardando prepedido...' : 'Creando prepedido...')
 
-    try {
-      const payload = buildPayload()
-      const wasEdit = isEdit.value
+  try {
+    const payload = buildPayload()
+    const wasEdit = isEdit.value
 
-      dbg('save:start', {
-        wasEdit,
-        editingId: editingId.value,
-        payload,
+    let res: any
+
+    if (wasEdit) {
+      res = await $api(`/pedido-sugerencias/${editingId.value}`, {
+        method: 'PUT',
+        body: payload,
       })
-
-      let res: any
-
-      if (wasEdit) {
-        res = await $api(`/pedido-sugerencias/${editingId.value}`, {
-          method: 'PUT',
-          body: payload,
-        })
-      } else {
-        res = await $api('/pedido-sugerencias', {
-          method: 'POST',
-          body: payload,
-        })
-      }
-
-      dbg('save:response', res)
-
-      const row = extractPayloadData(res)
-      dbg('save:row', row)
-
-      if (row?.id)
-        await fetchById(Number(row.id))
-
-      await success(
-        'Listo',
-        wasEdit
-          ? 'Sugerencia actualizada correctamente.'
-          : 'Sugerencia creada correctamente.',
-      )
-
-      return row
-    } catch (e: any) {
-      handleApiError(e)
-      throw e
-    } finally {
-      saving.value = false
-    }
-  }
-
-  const generarForecast = async () => {
-    generating.value = true
-
-    try {
-      const payload = {
-        cliente_id: formClienteId.value,
-        tipo_pedido_id: formTipoPedidoId.value,
-        fecha_objetivo: formFechaObjetivo.value,
-        dias_historico: formDiasHistorico.value,
-        forzar_regeneracion: formForzarRegeneracion.value,
-        observaciones: formObservaciones.value.trim() || null,
-      }
-
-      dbg('generarForecast:payload', payload)
-
-      const res: any = await $api('/pedido-sugerencias/generar', {
+    } else {
+      res = await $api('/pedido-sugerencias', {
         method: 'POST',
         body: payload,
       })
-
-      dbg('generarForecast:response', res)
-
-      const row = extractPayloadData(res)
-      dbg('generarForecast:row', row)
-
-      if (row?.id) {
-        const hydrated = await fetchById(Number(row.id))
-        formOrigen.value = hydrated?.origen ?? 'forecast'
-
-        await success('Listo', 'Forecast generado correctamente.')
-        return hydrated
-      }
-
-      await success('Listo', 'Forecast generado correctamente.')
-      return row
-    } catch (e: any) {
-      handleApiError(e)
-      throw e
-    } finally {
-      generating.value = false
     }
+
+    const row = extractPayloadData(res)
+
+    if (row?.id) {
+      await fetchById(Number(row.id))
+    }
+
+    saving.value = false
+    endAction()
+
+    await success(
+      'Listo',
+      wasEdit ? 'Prepedido actualizado correctamente.' : 'Prepedido creado correctamente.',
+    )
+
+    return row
+  } catch (e: any) {
+    saving.value = false
+    endAction()
+    handleApiError(e)
+    throw e
   }
+}
 
-  const confirmItem = async (id?: number) => {
-    const targetId = id ?? editingId.value
-    if (!targetId) return
+const generarForecast = async () => {
+  generating.value = true
+  startAction('Generando prepedido sugerido...')
 
-    dbg('confirmItem:start', targetId)
+  try {
+    const payload = {
+      cliente_id: formClienteId.value,
+      tipo_pedido_id: formTipoPedidoId.value,
+      fecha_objetivo: formFechaObjetivo.value,
+      dias_historico: formDiasHistorico.value,
+      forzar_regeneracion: formForzarRegeneracion.value,
+      observaciones: formObservaciones.value.trim() || null,
+    }
 
-    const ok = await confirm({
-      title: '¿Confirmar sugerencia?',
-      text: 'La sugerencia pasará a estatus confirmado.',
-      confirmText: 'Sí, confirmar',
-      icon: 'question',
+    const res: any = await $api('/pedido-sugerencias/generar', {
+      method: 'POST',
+      body: payload,
     })
 
-    if (!ok) return
+    const row = extractPayloadData(res)
 
-    try {
-      const res: any = await $api(`/pedido-sugerencias/${targetId}/confirmar`, {
-        method: 'PATCH',
-      })
+    let result = row
 
-      dbg('confirmItem:response', res)
-
-      const row = extractPayloadData(res)
-      dbg('confirmItem:row', row)
-
-      if (row?.id)
-        await fetchById(Number(row.id))
-      else
-        formEstatus.value = 'confirmado'
-
-      await success('Listo', 'Sugerencia confirmada correctamente.')
-    } catch (e: any) {
-      handleApiError(e)
-      throw e
+    if (row?.id) {
+      result = await fetchById(Number(row.id))
+      formOrigen.value = 'sugerido'
+      formModelo.value = result?.modelo ?? 'forecast_v1'
+    } else {
+      formOrigen.value = 'sugerido'
+      formModelo.value = 'forecast_v1'
     }
+
+    generating.value = false
+    endAction()
+
+    await success('Listo', 'Prepedido sugerido generado correctamente.')
+
+    return result
+  } catch (e: any) {
+    generating.value = false
+    endAction()
+    handleApiError(e)
+    throw e
   }
+}
 
-  const generarPedido = async (id?: number) => {
-    const targetId = id ?? editingId.value
-    if (!targetId) return null
+const confirmItem = async (id?: number) => {
+  const targetId = id ?? editingId.value
+  if (!targetId) return
 
-    const ok = await confirm({
-      title: '¿Generar pedido?',
-      text: 'Se generará el pedido ERP a partir de esta sugerencia confirmada.',
-      confirmText: 'Sí, generar',
-      icon: 'question',
+  const ok = await confirm({
+    title: '¿Confirmar prepedido?',
+    text: 'El prepedido pasará a estatus confirmado.',
+    confirmText: 'Sí, confirmar',
+    icon: 'question',
+  })
+
+  if (!ok) return
+
+  startAction('Confirmando prepedido...')
+
+  try {
+    const res: any = await $api(`/pedido-sugerencias/${targetId}/confirmar`, {
+      method: 'PATCH',
     })
 
-    if (!ok) return null
+    const row = extractPayloadData(res)
 
-    generatingPedido.value = true
-    generatingPedidoId.value = targetId
+    if (row?.id) await fetchById(Number(row.id))
+    else formEstatus.value = 'confirmado'
 
-    try {
-      const res: any = await $api(`/pedido-sugerencias/${targetId}/generar-pedido`, {
-        method: 'POST',
-      })
+    endAction()
 
-      dbg('generarPedido:response', res)
-
-      const payload = unwrapResponse(res)
-      const pedido = payload?.data ?? payload ?? null
-
-      if (!pedido?.id) {
-        throw new Error('El backend no devolvió el ID del pedido generado.')
-      }
-
-      await fetchItems(currentPage.value)
-
-      if (editingId.value === targetId) {
-        await fetchById(targetId)
-      }
-
-      await success(
-        'Listo',
-        pedido?.folio
-          ? `Pedido generado correctamente. Folio: ${pedido.folio}.`
-          : 'Pedido generado correctamente.',
-      )
-
-      await router.push('/pedidos/pedido-sugerencias')
-
-      return pedido
-    } catch (e: any) {
-      handleApiError(e)
-      throw e
-    } finally {
-      generatingPedido.value = false
-      generatingPedidoId.value = null
-    }
+    await success('Listo', 'Prepedido confirmado correctamente.')
+  } catch (e: any) {
+    endAction()
+    handleApiError(e)
+    throw e
   }
+}
+
+const generarPedido = async (id?: number) => {
+  const targetId = id ?? editingId.value
+  if (!targetId) return null
+
+  const ok = await confirm({
+    title: '¿Generar pedido?',
+    text: 'Se generará el pedido ERP a partir de este prepedido confirmado.',
+    confirmText: 'Sí, generar',
+    icon: 'question',
+  })
+
+  if (!ok) return null
+
+  generatingPedido.value = true
+  generatingPedidoId.value = targetId
+  startAction('Generando pedido ERP...')
+
+  try {
+    const res: any = await $api(`/pedido-sugerencias/${targetId}/generar-pedido`, {
+      method: 'POST',
+    })
+
+    const payload = unwrapResponse(res)
+    const pedido = payload?.data ?? payload ?? null
+
+    if (!pedido?.id) {
+      throw new Error('El backend no devolvió el ID del pedido generado.')
+    }
+
+    await fetchItems(currentPage.value)
+
+    if (editingId.value === targetId) {
+      await fetchById(targetId)
+    }
+
+    generatingPedido.value = false
+    generatingPedidoId.value = null
+    endAction()
+
+    await success(
+      'Listo',
+      pedido?.folio
+        ? `Pedido generado correctamente. Folio: ${pedido.folio}.`
+        : 'Pedido generado correctamente.',
+    )
+
+    await router.push('/pedidos/pedido-sugerencias')
+
+    return pedido
+  } catch (e: any) {
+    generatingPedido.value = false
+    generatingPedidoId.value = null
+    endAction()
+    handleApiError(e)
+    throw e
+  }
+}
 
   const cancelItem = async (id?: number) => {
     const targetId = id ?? editingId.value
     if (!targetId) return
 
     const ok = await confirm({
-      title: '¿Cancelar sugerencia?',
-      text: 'La sugerencia se marcará como cancelada.',
+      title: '¿Cancelar prepedido?',
+      text: 'El prepedido se marcará como cancelado.',
       confirmText: 'Sí, cancelar',
       icon: 'warning',
     })
 
     if (!ok) return
+
+    startAction('Cancelando prepedido...')
 
     try {
       const res: any = await $api(`/pedido-sugerencias/${targetId}/cancelar`, {
@@ -750,21 +791,20 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
       })
 
       const row = extractPayloadData(res)
-      if (row?.id)
-        await fetchById(Number(row.id))
-      else
-        formEstatus.value = 'cancelado'
 
-      await success('Listo', 'Sugerencia cancelada correctamente.')
+      if (row?.id) await fetchById(Number(row.id))
+      else formEstatus.value = 'cancelado'
+
+      await success('Listo', 'Prepedido cancelado correctamente.')
     } catch (e: any) {
       handleApiError(e)
       throw e
+    } finally {
+      endAction()
     }
   }
 
   const clearFilters = async () => {
-    dbg('clearFilters')
-
     filtersClienteId.value = null
     filtersTipoPedidoId.value = null
     filtersEstatus.value = null
@@ -776,23 +816,61 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
     await fetchItems(1)
   }
 
+  const openNewWorkspace = async () => {
+    resetForm()
+    await prepareWorkspace()
+    await router.push('/pedidos/pedido-sugerencias/nuevo')
+  }
+
+  const openEditWorkspace = async (id: number) => {
+    if (!id) return
+
+    resetForm()
+    await prepareWorkspace()
+    await router.push(`/pedidos/pedido-sugerencias/${id}`)
+  }
+
+  const loadingBaseProductos = computed(() => hydratingAllProductos.value)
+  const actionLoading = computed(() => {
+    return loading.value
+      || loadingOne.value
+      || loadingCatalogs.value
+      || loadingProductos.value
+      || saving.value
+      || generating.value
+      || generatingPedido.value
+      || hydratingAllProductos.value
+  })
+
   return {
+    loadingBaseProductos,
+    actionLoading,
+    openNewWorkspace,
+    openEditWorkspace,
+    // loading
     loading,
+    loadingOne,
+    loadingCatalogs,
+    loadingProductos,
     saving,
     generating,
     generatingPedido,
     generatingPedidoId,
-    loadingOne,
+    hydratingAllProductos,
+    actionLoadingText,
 
+    // listado
     items,
     total,
     currentPage,
     perPage,
 
+    // catálogos
     clientes,
     tiposPedido,
     productos,
 
+    // filtros
     filtersClienteId,
     filtersTipoPedidoId,
     filtersEstatus,
@@ -801,8 +879,8 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
     filtersFechaHasta,
     q,
 
+    // form
     editingId,
-
     formClienteId,
     formTipoPedidoId,
     formFechaObjetivo,
@@ -814,17 +892,23 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
     formEstatus,
     formDetalles,
 
+    // computed
     isEdit,
     isDraft,
-    headers,
-    estatusOptions,
-    origenOptions,
-
+    isManual,
+    isSugerido,
+    canHydrateManualProducts,
     totalProductos,
     totalSugerido,
     totalAjustado,
     totalFinal,
 
+    // options / config
+    headers,
+    estatusOptions,
+    origenOptions,
+
+    // methods
     fetchItems,
     fetchById,
     fetchClientes,
@@ -834,10 +918,12 @@ export const usePedidoSugerenciasStore = defineStore('pedido-sugerencias', () =>
 
     resetForm,
     hydrateFormFromItem,
+    syncFormOriginBehavior,
 
     addDetalle,
     removeDetalle,
     onProductoChange,
+    hydrateManualProductos,
 
     save,
     generarForecast,

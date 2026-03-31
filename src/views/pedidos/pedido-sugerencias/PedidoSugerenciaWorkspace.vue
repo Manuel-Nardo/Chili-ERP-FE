@@ -6,7 +6,7 @@ import { useRouter } from 'vue-router'
 const store = usePedidoSugerenciasStore()
 const router = useRouter()
 const formRef = ref<any>(null)
-const showConfig = ref(false)
+const showConfig = ref(true)
 
 watch(
   () => store.formTipoPedidoId,
@@ -22,14 +22,14 @@ watch(
 )
 
 const title = computed(() => {
-  if (store.loadingOne) return 'Cargando sugerencia...'
-  return store.isEdit ? `Editar sugerencia #${store.editingId}` : 'Nueva sugerencia'
+  if (store.loadingOne) return 'Cargando prepedido...'
+  return store.isEdit ? `Editar prepedido #${store.editingId}` : 'Nuevo prepedido'
 })
 
 const subtitle = computed(() => {
   return store.isEdit
-    ? 'Ajusta cantidades y observaciones del pedido sugerido.'
-    : 'Genera, ajusta y confirma el pedido sugerido.'
+    ? 'Ajusta cantidades y observaciones del prepedido.'
+    : 'Crea un prepedido manual o genera uno sugerido.'
 })
 
 const statusColor = computed(() => {
@@ -56,12 +56,22 @@ const origenLabel = computed(() => {
   return found?.title ?? store.formOrigen ?? '-'
 })
 
-const canGenerate = computed(() => {
+const isForecastOrigin = computed(() => store.formOrigen === 'forecast')
+
+const canGenerateForecast = computed(() => {
   return store.isDraft
     && !!store.formClienteId
     && !!store.formTipoPedidoId
     && !!store.formFechaObjetivo
-})
+    && !store.isEdit
+  })
+
+const canLoadBaseProducts = computed(() => {
+  return store.isDraft
+    && !!store.formClienteId
+    && !!store.formTipoPedidoId
+    && store.formOrigen === 'manual'
+  })
 
 const canGeneratePedido = computed(() => {
   return store.isEdit && store.formEstatus === 'confirmado'
@@ -86,7 +96,7 @@ const onSave = async () => {
     router.replace(`/pedidos/pedido-sugerencias/${row.id}`)
 }
 
-const onGenerar = async () => {
+const onGenerarForecast = async () => {
   const valid = await formRef.value?.validate()
   if (!valid?.valid) return
 
@@ -122,8 +132,8 @@ const toggleConfig = () => {
     ref="formRef"
     @submit.prevent="onSave"
   >
-    <div class="pedido-workspace">
-      <VCard class="mb-4">
+    <div class="pedido-workspace position-relative">
+      <VCard class="mb-4 workspace-hero-card">
         <VCardText class="d-flex align-center justify-space-between flex-wrap gap-3">
           <div>
             <div class="d-flex align-center gap-2">
@@ -167,26 +177,32 @@ const toggleConfig = () => {
               color="info"
               variant="tonal"
               :loading="store.generating"
-              :disabled="!canGenerate || store.isEdit"
-              @click="onGenerar"
+              :disabled="!canGenerateForecast || store.actionLoading"
+              @click="onGenerarForecast"
             >
-              <VIcon
-                icon="tabler-wand"
-                class="me-1"
-              />
-              Generar Forecast
+              <VIcon icon="tabler-wand" class="me-1" />
+              Generar sugerido
+            </VBtn>
+
+            <VBtn
+              v-if="canLoadBaseProducts"
+              color="secondary"
+              variant="tonal"
+              :loading="store.loadingBaseProductos"
+              :disabled="store.actionLoading"
+              @click="store.hydrateManualProductos()"
+            >
+              <VIcon icon="tabler-packages" class="me-1" />
+              Cargar productos base
             </VBtn>
 
             <VBtn
               color="primary"
               variant="tonal"
-              :disabled="!canEditDetail"
+              :disabled="!canEditDetail || store.actionLoading"
               @click="store.addDetalle()"
             >
-              <VIcon
-                icon="tabler-plus"
-                class="me-1"
-              />
+              <VIcon icon="tabler-plus" class="me-1" />
               Agregar producto
             </VBtn>
 
@@ -194,12 +210,9 @@ const toggleConfig = () => {
               color="primary"
               type="submit"
               :loading="store.saving"
-              :disabled="!canEditDetail"
+              :disabled="!canEditDetail || store.actionLoading"
             >
-              <VIcon
-                icon="tabler-device-floppy"
-                class="me-1"
-              />
+              <VIcon icon="tabler-device-floppy" class="me-1" />
               Guardar
             </VBtn>
 
@@ -207,12 +220,10 @@ const toggleConfig = () => {
               v-if="store.isEdit && store.isDraft"
               color="success"
               variant="tonal"
+              :disabled="store.actionLoading"
               @click="onConfirm"
             >
-              <VIcon
-                icon="tabler-circle-check"
-                class="me-1"
-              />
+              <VIcon icon="tabler-circle-check" class="me-1" />
               Confirmar
             </VBtn>
 
@@ -221,12 +232,10 @@ const toggleConfig = () => {
               color="primary"
               variant="tonal"
               :loading="store.generatingPedido"
+              :disabled="store.actionLoading"
               @click="onGenerarPedido"
             >
-              <VIcon
-                icon="tabler-file-invoice"
-                class="me-1"
-              />
+              <VIcon icon="tabler-file-invoice" class="me-1" />
               Generar pedido
             </VBtn>
 
@@ -234,19 +243,17 @@ const toggleConfig = () => {
               v-if="store.isEdit && store.formEstatus !== 'cancelado' && store.formEstatus !== 'procesado'"
               color="warning"
               variant="tonal"
+              :disabled="store.actionLoading"
               @click="onCancel"
             >
-              <VIcon
-                icon="tabler-ban"
-                class="me-1"
-              />
+              <VIcon icon="tabler-ban" class="me-1" />
               Cancelar
             </VBtn>
           </div>
         </VCardText>
       </VCard>
 
-      <VCard class="mb-4">
+      <VCard class="mb-4 config-card">
         <VCardText class="py-3">
           <div class="d-flex flex-wrap align-center justify-space-between gap-3">
             <div>
@@ -254,13 +261,13 @@ const toggleConfig = () => {
                 Configuración general
               </div>
               <div class="text-body-2 text-medium-emphasis">
-                Cliente, tipo de pedido y parámetros para forecast.
+                Sucursal, tipo de pedido y modo de captura del prepedido.
               </div>
             </div>
 
             <div class="d-flex align-center gap-2 flex-wrap">
               <VChip size="small" variant="tonal">
-                Cliente: {{ clienteLabel }}
+                Sucursal: {{ clienteLabel }}
               </VChip>
 
               <VChip size="small" variant="tonal">
@@ -283,28 +290,22 @@ const toggleConfig = () => {
           </div>
 
           <VExpandTransition>
-            <div v-show="showConfig && canEditHeader">
+            <div v-show="showConfig && canEditHeader" class="mt-4">
               <VRow>
-                <VCol
-                  cols="12"
-                  md="4"
-                >
+                <VCol cols="12" md="4">
                   <AppSelect
                     v-model="store.formClienteId"
                     :items="store.clientes"
                     item-title="title"
                     item-value="value"
                     label="Sucursal / Cliente"
-                    placeholder="Selecciona cliente"
+                    placeholder="Selecciona sucursal"
                     :rules="[v => !!v || 'Requerido']"
                     :disabled="!canEditHeader"
                   />
                 </VCol>
 
-                <VCol
-                  cols="12"
-                  md="4"
-                >
+                <VCol cols="12" md="4">
                   <AppSelect
                     v-model="store.formTipoPedidoId"
                     :items="store.tiposPedido"
@@ -317,10 +318,7 @@ const toggleConfig = () => {
                   />
                 </VCol>
 
-                <VCol
-                  cols="12"
-                  md="4"
-                >
+                <VCol cols="12" md="4">
                   <AppDateTimePicker
                     v-model="store.formFechaObjetivo"
                     label="Fecha objetivo"
@@ -330,56 +328,30 @@ const toggleConfig = () => {
                   />
                 </VCol>
 
-                <VCol
-                  cols="12"
-                  md="3"
-                >
+                <VCol cols="12" md="4">
                   <AppSelect
                     v-model="store.formOrigen"
                     :items="store.origenOptions"
                     item-title="title"
                     item-value="value"
                     label="Origen"
-                    :disabled="true"
+                    :disabled="!canEditHeader"
                   />
                 </VCol>
 
-                <VCol
-                  cols="12"
-                  md="3"
-                >
+                <VCol cols="12" md="4">
                   <AppTextField
-                    v-model="store.formModelo"
+                    :model-value="store.formModelo || (isForecastOrigin ? 'forecast_v1' : 'manual')"
                     label="Modelo"
-                    placeholder="forecast_v1"
-                    :disabled="true"
+                    readonly
                   />
                 </VCol>
 
-                <VCol
-                  cols="12"
-                  md="3"
-                >
+                <VCol cols="12" md="4">
                   <AppTextField
-                    v-model="store.formDiasHistorico"
+                    :model-value="store.formDiasHistorico"
                     label="Días histórico"
-                    type="number"
-                    min="28"
-                    max="365"
-                    :disabled="!canEditHeader"
-                  />
-                </VCol>
-
-                <VCol
-                  cols="12"
-                  md="3"
-                  class="d-flex align-center"
-                >
-                  <VSwitch
-                    v-model="store.formForzarRegeneracion"
-                    label="Forzar regeneración"
-                    inset
-                    :disabled="!canEditHeader"
+                    readonly
                   />
                 </VCol>
 
@@ -401,14 +373,16 @@ const toggleConfig = () => {
       <VCard>
         <VCardText class="py-3">
           <div class="d-flex align-center justify-space-between flex-wrap gap-2">
-            <div class="text-subtitle-2 font-weight-medium">
-              Detalle del pedido
+            <div>
+              <div class="text-subtitle-2 font-weight-medium">
+                Detalle del prepedido
+              </div>
+              <div class="text-body-2 text-medium-emphasis">
+                En manual puedes capturar o cargar productos base. En sugerido se genera desde forecast.
+              </div>
             </div>
 
-            <VChip
-              size="small"
-              variant="outlined"
-            >
+            <VChip size="small" variant="outlined">
               {{ store.formDetalles.length }} productos
             </VChip>
           </div>
@@ -420,40 +394,20 @@ const toggleConfig = () => {
           <VTable class="workspace-table text-no-wrap">
             <thead>
               <tr>
-                <th style="min-width: 140px;">
-                  Clave
-                </th>
-                <th style="min-width: 320px;">
-                  Producto
-                </th>
-                <th style="min-width: 120px;">
-                  Sugerida
-                </th>
-                <th style="min-width: 120px;">
-                  Ajustada
-                </th>
-                <th style="min-width: 120px;">
-                  Final
-                </th>
-                <th style="min-width: 240px;">
-                  Observaciones
-                </th>
-                <th
-                  style="width: 70px;"
-                  class="text-right"
-                >
-                  Acción
-                </th>
+                <th style="min-width: 140px;">Clave</th>
+                <th style="min-width: 320px;">Producto</th>
+                <th style="min-width: 120px;">Sugerida</th>
+                <th style="min-width: 120px;">Ajustada</th>
+                <th style="min-width: 120px;">Final</th>
+                <th style="min-width: 240px;">Observaciones</th>
+                <th style="width: 70px;" class="text-right">Acción</th>
               </tr>
             </thead>
 
             <tbody>
               <tr v-if="!store.formDetalles.length">
-                <td
-                  colspan="7"
-                  class="text-center py-8 text-medium-emphasis"
-                >
-                  No hay productos en la sugerencia.
+                <td colspan="7" class="text-center py-8 text-medium-emphasis">
+                  No hay productos en el prepedido.
                 </td>
               </tr>
 
@@ -476,7 +430,7 @@ const toggleConfig = () => {
                     item-title="title"
                     item-value="value"
                     placeholder="Selecciona producto"
-                    :disabled="store.isEdit || !canEditDetail"
+                    :disabled="store.isEdit || !canEditDetail || store.actionLoading"
                     @update:model-value="store.onProductoChange(index)"
                   />
                 </td>
@@ -487,7 +441,7 @@ const toggleConfig = () => {
                     type="number"
                     min="0"
                     step="0.01"
-                    :disabled="true"
+                    :disabled="store.formOrigen === 'forecast' || store.actionLoading"
                   />
                 </td>
 
@@ -497,7 +451,7 @@ const toggleConfig = () => {
                     type="number"
                     min="0"
                     step="0.01"
-                    :disabled="!canEditDetail"
+                    :disabled="!canEditDetail || store.actionLoading"
                   />
                 </td>
 
@@ -507,7 +461,7 @@ const toggleConfig = () => {
                     type="number"
                     min="0"
                     step="0.01"
-                    :disabled="!canEditDetail"
+                    :disabled="!canEditDetail || store.actionLoading"
                   />
                 </td>
 
@@ -515,19 +469,16 @@ const toggleConfig = () => {
                   <AppTextField
                     v-model="detalle.observaciones"
                     placeholder="Opcional"
-                    :disabled="!canEditDetail"
+                    :disabled="!canEditDetail || store.actionLoading"
                   />
                 </td>
 
                 <td class="text-right">
                   <IconBtn
-                    :disabled="!canEditDetail"
+                    :disabled="!canEditDetail || store.actionLoading"
                     @click="store.removeDetalle(index)"
                   >
-                    <VIcon
-                      icon="tabler-trash"
-                      class="text-error"
-                    />
+                    <VIcon icon="tabler-trash" class="text-error" />
                   </IconBtn>
                 </td>
               </tr>
@@ -535,6 +486,23 @@ const toggleConfig = () => {
           </VTable>
         </div>
       </VCard>
+
+      <VOverlay
+        :model-value="store.actionLoading || store.loadingOne"
+        persistent
+        contained
+        class="align-center justify-center"
+      >
+        <div class="loading-card">
+          <VIcon icon="tabler-home" size="44" color="primary" class="mb-3" />
+          <div class="text-subtitle-1 font-weight-medium">
+            {{ store.loadingOne ? 'Cargando prepedido...' : store.actionLoadingText }}
+          </div>
+          <div class="text-body-2 text-medium-emphasis mt-1">
+            Procesando información...
+          </div>
+        </div>
+      </VOverlay>
     </div>
   </VForm>
 </template>
@@ -542,6 +510,13 @@ const toggleConfig = () => {
 <style scoped>
 .pedido-workspace {
   padding-bottom: 16px;
+}
+
+.workspace-hero-card,
+.config-card,
+.summary-card {
+  border: 1px solid rgba(var(--v-theme-primary), 0.08);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
 }
 
 .workspace-table-wrap {
@@ -560,6 +535,33 @@ const toggleConfig = () => {
 
 .workspace-table td {
   vertical-align: middle;
+}
+
+.summary-box {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(var(--v-theme-primary), 0.04);
+  border: 1px solid rgba(var(--v-theme-primary), 0.08);
+}
+
+.summary-label {
+  font-size: 0.8rem;
+  color: rgba(var(--v-theme-on-surface), 0.65);
+  margin-bottom: 6px;
+}
+
+.summary-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.loading-card {
+  min-width: 280px;
+  padding: 26px 30px;
+  border-radius: 18px;
+  background: rgb(var(--v-theme-surface));
+  box-shadow: 0 22px 48px rgba(15, 23, 42, 0.2);
+  text-align: center;
 }
 
 :deep(.v-field) {
